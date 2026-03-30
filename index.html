@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>數學遊戲 - 學生系統</title>
+    <title>數學大冒險 - 勇者系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         #sidebar { transition: transform 0.3s ease-in-out; }
@@ -69,15 +69,15 @@
         <div class="p-6">
             <h2 class="text-xl font-black text-gray-800 mb-8 border-b pb-4">冒險清單</h2>
             <ul class="space-y-3">
-                <li><a href="index.html" class="block p-4 bg-blue-50 text-blue-700 rounded-xl font-bold italic">🏠 勇者大廳</a></li>
-                <li><a href="ten.html" class="block p-4 hover:bg-gray-50 text-gray-600 rounded-xl font-bold transition">🎮 合十挑戰</a></li>
-                <li><a href="circle2.html" class="block p-4 hover:bg-gray-50 text-gray-600 rounded-xl font-bold transition">🧠 圓周魔王</a></li>
+                <li><a href="#" class="block p-4 bg-blue-50 text-blue-700 rounded-xl font-bold italic">🏠 勇者大廳</a></li>
+                <li><a href="#" class="block p-4 hover:bg-gray-50 text-gray-600 rounded-xl font-bold transition">🎮 合十挑戰</a></li>
             </ul>
         </div>
     </div>
     <div id="overlay" class="fixed inset-0 bg-black opacity-0 pointer-events-none transition-opacity duration-300 z-40"></div>
 
     <script>
+        // ！！！請替換成你的 GAS 部署網址 ！！！
         const API_URL = "https://script.google.com/macros/s/AKfycbxi8Qk9rgDRqjrEnwJrtZhhXDUiSsHm3Ndqy2u6IKV6FJLuPBVat0Z6em-psKH8hIi_NA/exec"; 
 
         function showSection(id) {
@@ -86,57 +86,63 @@
         }
 
         document.getElementById('loginSubmit').addEventListener('click', async () => {
-            const id = document.getElementById('stuID').value;
-            const pw = document.getElementById('stuPW').value;
+            const id = document.getElementById('stuID').value.trim();
+            const pw = document.getElementById('stuPW').value.trim();
+            
             if(!id || !pw) return alert("請輸入學號與密碼！");
 
             showSection('loadingSection');
+            document.getElementById('errorMsg').classList.add('hidden');
 
             try {
-                // 使用 POST 方式，並傳送 JSON 資料
+                // 統一發送 POST 請求
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // 注意：GAS POST 請求通常無法讀取 Response，這裡有個技巧
-                    body: JSON.stringify({ action: 'login', id: id })
+                    body: JSON.stringify({ 
+                        action: 'login', 
+                        id: id,
+                        pw: pw 
+                    })
                 });
 
-                // 因為 GAS 的 doPost 跨網域限制非常多，
-                // 如果你發現 'no-cors' 拿不到資料，請將 GAS 改用 doGet (如我上個回覆所示)
-                // 這裡假設我們使用更穩定的 GET 方式來處理登入：
-                const getResp = await fetch(`${API_URL}?id=${id}&pw=${pw}`);
-                const res = await getResp.json();
+                const res = await response.json();
 
-                if (res.status === "success" || res.success) {
-                    // 這裡的資料欄位對應你的 GAS：data[i][2]是名, [3]是job, [4]是lv
-                    // 如果是用你提供的 doPost 邏輯回傳：
-                    const userData = res.data || res;
+                if (res.success) {
+                    const userData = res.data;
                     
+                    // 渲染介面資料
                     document.getElementById('displayName').innerText = userData.name;
                     document.getElementById('displayLV').innerText = userData.lv;
-                    document.getElementById('displayJob').innerText = userData.job || userData.role;
+                    document.getElementById('displayJob').innerText = userData.job || "初級勇者";
                     
-                    // 解析 stats JSON
-                    const stats = (typeof userData.stats === 'string') ? JSON.parse(userData.stats) : userData.stats;
-                    document.getElementById('attrATK').innerText = stats ? stats.atk : (userData.atk || 0);
-                    document.getElementById('attrDEF').innerText = stats ? stats.def : (userData.def || 0);
+                    // 處理數值
+                    const stats = userData.stats || { atk: 0, def: 0 };
+                    document.getElementById('attrATK').innerText = stats.atk;
+                    document.getElementById('attrDEF').innerText = stats.def;
                     
                     showSection('profileSection');
                 } else {
                     showSection('loginSection');
-                    document.getElementById('errorMsg').classList.remove('hidden');
+                    const errorElement = document.getElementById('errorMsg');
+                    errorElement.innerText = "❌ " + (res.msg || "登入失敗");
+                    errorElement.classList.remove('hidden');
                 }
             } catch (e) {
-                console.error(e);
-                alert("伺服器連線異常，請檢查 GAS 部署是否設為「任何人」");
+                console.error("Error:", e);
+                alert("伺服器連線失敗，請檢查網路或 GAS 部署設定。");
                 showSection('loginSection');
             }
         });
 
-        // 目錄邏輯
+        // 側邊欄邏輯
         const menuBtn = document.getElementById('menuBtn');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
-        function toggle() { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('opacity-50'); overlay.classList.toggle('pointer-events-none'); }
+        function toggle() { 
+            sidebar.classList.toggle('-translate-x-full'); 
+            overlay.classList.toggle('opacity-50'); 
+            overlay.classList.toggle('pointer-events-none'); 
+        }
         menuBtn.onclick = toggle; overlay.onclick = toggle;
     </script>
 </body>
