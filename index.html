@@ -3,267 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>數學合十挑戰 - 學生登入版</title>
+    <title>數學合十挑戰</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #fff7ed; font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #fff7ed; font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; touch-action: none; user-select: none; }
         #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #fff7ed, #ffedd5); }
-        #bubble-area { position: absolute; inset: 0; z-index: 5; }
+        
         .bubble { 
-            position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.15); 
-            user-select: none; border: 3px solid rgba(255,255,255,0.4);
-            transition: transform 0.1s active;
-            z-index: 10;
+            position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            color: white; font-weight: bold; cursor: pointer; box-shadow: 0 8px 25px rgba(0,0,0,0.2); 
+            border: 4px solid rgba(255,255,255,0.5); z-index: 10; transition: transform 0.1s; 
         }
         .bubble:active { transform: scale(0.9); }
-        .modal { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            background: white; padding: 30px; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); 
-            text-align: center; z-index: 100; width: 90%; max-width: 400px;
+        .bubble-wrong { background: #333 !important; animation: shake-fade 0.4s forwards; pointer-events: none; }
+        
+        @keyframes shake-fade {
+            0% { transform: translateX(0); opacity: 1; }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            100% { transform: scale(0.5); opacity: 0; }
         }
-        input { border: 2px solid #fed7aa; padding: 12px; border-radius: 15px; width: 100%; margin-bottom: 12px; text-align: center; font-size: 1rem; }
-        input:focus { outline: none; border-color: #f97316; }
-        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #f97316; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 35px; box-shadow: 0 40px 80px rgba(0,0,0,0.3); text-align: center; z-index: 500; width: 92%; max-width: 420px; border: 6px solid #fed7aa; max-height: 90vh; overflow-y: auto; }
+        #timer-bar { height: 100%; background: linear-gradient(90deg, #fb923c, #f97316); transition: width 0.1s linear; border-radius: 10px; }
+        
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #f97316; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* 飄浮裝飾背景 */
-        .bg-deco { position: absolute; color: rgba(249, 115, 22, 0.05); font-size: 5rem; font-weight: bold; z-index: 0; pointer-events: none; }
-        
-        #ready-timer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; font-weight: 900; color: #f97316; z-index: 200; pointer-events: none; text-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+
+        /* 龍虎榜樣式 */
+        .rank-item { display: flex; align-items: center; padding: 10px 15px; margin-bottom: 8px; border-radius: 15px; background: #fffaf5; border: 1px solid #ffedd5; }
+        .rank-num { width: 35px; font-weight: 900; font-style: italic; color: #fb923c; font-size: 1.2rem; }
+        .rank-name { flex-grow: 1; text-align: left; font-weight: 700; color: #431407; }
+        .rank-score { font-weight: 900; color: #ea580c; }
+        .rank-1 { background: #fef3c7; border-color: #fcd34d; transform: scale(1.02); }
     </style>
 </head>
 <body>
 
 <div id="game-container">
-    <div class="bg-deco" style="top:10%; left:10%;">10</div>
-    <div class="bg-deco" style="top:60%; right:15%;">+</div>
-    <div class="bg-deco" style="bottom:10%; left:20%;">5+5</div>
+    <!-- 進度條 -->
+    <div class="absolute top-4 left-4 right-4 h-6 bg-black/10 z-[100] rounded-full p-1 border-2 border-white/50">
+        <div id="timer-bar" style="width: 100%;"></div>
+    </div>
 
-    <!-- 登入畫面 -->
-    <div id="login-screen" class="absolute inset-0 bg-orange-500 flex flex-col items-center justify-center text-white z-[300] p-6 text-center">
-        <div class="mb-8">
-            <h1 class="text-5xl font-black mb-2 italic">數學合十挑戰</h1>
-            <p class="opacity-80">MATH ADVENTURE</p>
+    <!-- 登入介面 -->
+    <div id="login-screen" class="absolute inset-0 bg-orange-500 flex flex-col items-center justify-center text-white z-[600] p-6 text-center">
+        <div class="mb-6">
+            <div class="text-7xl mb-2">🔥</div>
+            <h1 class="text-4xl font-black italic">合十龍虎榜</h1>
+            <p class="text-orange-100 font-bold tracking-widest text-sm">TOP 10 CHALLENGE</p>
         </div>
         
-        <div class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-xs text-gray-800">
-            <p class="mb-4 text-sm text-orange-600 font-bold uppercase tracking-widest">Student Login</p>
-            <input type="text" id="stu-id" placeholder="學生帳號 (ID)" autocomplete="off">
-            <input type="password" id="stu-pass" placeholder="密碼" autocomplete="off">
-            <button id="login-btn" class="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-2xl text-xl font-bold shadow-lg w-full active:scale-95 transition-all mt-2">
-                登入遊戲
-            </button>
-            <div id="login-loading" class="mt-4 hidden text-orange-500 font-medium">
-                <div class="loading-spinner mr-2"></div> 驗證中...
+        <div class="bg-white p-6 rounded-[35px] shadow-2xl w-full max-w-sm text-gray-800">
+            <div class="space-y-4">
+                <input type="text" id="stu-id" placeholder="輸入學號" class="bg-orange-50 border-2 border-orange-100 p-3 rounded-2xl w-full text-center text-lg font-bold outline-none focus:border-orange-400">
+                <input type="password" id="stu-pw" placeholder="密碼" class="bg-orange-50 border-2 border-orange-100 p-3 rounded-2xl w-full text-center text-lg font-bold outline-none focus:border-orange-400">
+                <button id="login-btn" class="bg-orange-500 text-white py-4 rounded-2xl text-xl font-black w-full shadow-[0_4px_0_rgb(194,65,12)] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center">
+                    <span id="btn-text">登入並挑戰</span>
+                    <div id="btn-loader" class="loader hidden"></div>
+                </button>
+                <button id="guest-btn" class="text-gray-400 font-bold text-sm">訪客試玩 (不計分)</button>
             </div>
         </div>
-        <p class="mt-8 text-xs opacity-60">數據將同步至 Google Sheets 試算表</p>
     </div>
 
-    <!-- 遊戲中顯示的準備倒數 -->
-    <div id="ready-timer" style="display: none;">3</div>
+    <div id="bubble-area" class="absolute inset-0"></div>
 
-    <!-- 氣泡產生區域 -->
-    <div id="bubble-area"></div>
-
-    <!-- 遊戲 UI -->
-    <div id="ui-layer" class="absolute top-6 left-0 right-0 px-6 pointer-events-none z-50 flex flex-col items-center">
-        <div class="bg-white/90 backdrop-blur px-6 py-2 rounded-full shadow-sm font-bold text-orange-600 mb-3 border border-orange-100">
-            👤 <span id="player-name-ui">---</span> | 🏆 最高: <span id="player-best-ui">0</span>
-        </div>
-        <div class="bg-orange-500 text-white px-10 py-2 rounded-2xl text-2xl font-black shadow-xl border-b-4 border-orange-700">
-            得分: <span id="score-display">0</span>
-        </div>
+    <div class="absolute top-12 left-0 right-0 flex flex-col items-center pointer-events-none z-50">
+        <div id="score-tag" class="bg-white text-orange-600 px-6 py-2 rounded-full text-2xl font-black shadow-lg border-2 border-orange-400">得分: 0</div>
     </div>
 
-    <!-- 結算畫面 -->
-    <div id="message-box" class="modal" style="display: none;">
-        <div class="text-5xl mb-4">⏰</div>
-        <h2 class="text-3xl font-black mb-2 text-orange-600">時間到！</h2>
-        <p class="text-gray-500 mb-1">本次挑戰得分</p>
-        <p class="text-6xl font-black mb-8 text-orange-500" id="final-score">0</p>
-        
-        <div id="sync-status" class="bg-gray-50 py-3 px-4 rounded-xl text-sm text-gray-500 mb-6 flex items-center justify-center">
-            正在同步分數...
+    <!-- 龍虎榜結算畫面 -->
+    <div id="message-box" class="modal hidden">
+        <h2 class="text-2xl font-black text-gray-800 mb-2">挑戰結束！</h2>
+        <div class="bg-orange-50 py-3 rounded-2xl mb-4">
+            <p class="text-xs text-orange-400 font-bold uppercase">Your Score</p>
+            <p class="text-5xl font-black text-orange-500" id="final-score">0</p>
         </div>
-        
-        <button id="restart-btn" class="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold text-xl w-full shadow-lg active:scale-95 transition-all">
-            再玩一次
-        </button>
+
+        <div class="mb-4">
+            <h3 class="text-lg font-black text-orange-600 mb-2 flex items-center justify-center">
+                <span class="mr-2">🏆</span> 全校龍虎榜 TOP 10
+            </h3>
+            <div id="leaderboard-list" class="space-y-1">
+                <div class="text-gray-400 py-4 italic">讀取榜單中...</div>
+            </div>
+        </div>
+
+        <button id="restart-btn" class="bg-orange-500 text-white py-4 rounded-2xl font-black text-xl w-full shadow-[0_4px_0_rgb(194,65,12)] active:translate-y-1 active:shadow-none mb-2">再玩一次</button>
     </div>
 </div>
 
 <script>
-    // --- 重要：在此貼上你的 Google Apps Script 網址 (確認結尾是 /exec) ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRYrYmNiYN-fnhjkXxvYeLXiYh9mre-8U9Vn65rSCqg1qFzCsvT91F0JdiOOXqIexg8w/exec";
-
-    let studentData = { id: "", name: "", highScore: 0 };
     let score = 0;
     let gameActive = false;
-    let gameTimer = null;
-    let spawnInterval = null;
+    let currentTime = 20000;
+    const MAX_TIME = 20000;
+    let currentUserId = "";
 
-    // 處理登入
+    // 音效
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        if (type === 'correct') {
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        } else if (type === 'wrong') {
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+    }
+
+    // 登入
     document.getElementById('login-btn').onclick = async () => {
-        const id = document.getElementById('stu-id').value.trim();
-        const password = document.getElementById('stu-pass').value.trim();
-        if (!id || !password) return alert("請輸入帳號和密碼");
-
-        const loading = document.getElementById('login-loading');
-        loading.classList.remove('hidden');
-        
+        const id = document.getElementById('stu-id').value;
+        const pw = document.getElementById('stu-pw').value;
+        if(!id || !pw) return;
+        document.getElementById('btn-text').classList.add('hidden');
+        document.getElementById('btn-loader').classList.remove('hidden');
         try {
-            const resp = await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "login", id: id, password: password })
-            });
-            
-            if (!resp.ok) throw new Error("網路連線不穩定 (" + resp.status + ")");
-            const result = await resp.json();
-
-            if (result.success) {
-                studentData = { id: id, name: result.name, highScore: result.highScore };
-                document.getElementById('player-name-ui').innerText = studentData.name;
-                document.getElementById('player-best-ui').innerText = studentData.highScore;
-                
-                // 隱藏登入介面
-                document.getElementById('login-screen').style.display = 'none';
-                
-                // 自動倒數開始遊戲
-                readyGo();
-            } else {
-                alert("登入失敗: " + result.message);
-            }
-        } catch (e) {
-            console.error(e);
-            alert("連線失敗！請確保已上傳到 GitHub Pages 並發佈 Google Script 為「所有人」。\n原因: " + e.message);
-        } finally {
-            loading.classList.add('hidden');
+            const res = await fetch(`${SCRIPT_URL}?id=${encodeURIComponent(id)}&pw=${encodeURIComponent(pw)}&action=login`);
+            const data = await res.json();
+            if(data.status === "success") { currentUserId = id; startGameFlow(); }
+            else { playSound('wrong'); alert("登入失敗！"); }
+        } catch (e) { alert("系統繁忙中"); }
+        finally {
+            document.getElementById('btn-text').classList.remove('hidden');
+            document.getElementById('btn-loader').classList.add('hidden');
         }
     };
 
-    function readyGo() {
-        const readyEl = document.getElementById('ready-timer');
-        readyEl.style.display = 'block';
-        let count = 3;
-        readyEl.innerText = count;
+    document.getElementById('guest-btn').onclick = () => { currentUserId = "GUEST"; startGameFlow(); };
 
-        const countdown = setInterval(() => {
-            count--;
-            if (count > 0) {
-                readyEl.innerText = count;
-            } else if (count === 0) {
-                readyEl.innerText = "GO!";
-            } else {
-                clearInterval(countdown);
-                readyEl.style.display = 'none';
-                startGame();
-            }
-        }, 1000);
+    function startGameFlow() {
+        document.getElementById('login-screen').classList.add('hidden');
+        startGame();
     }
 
     function startGame() {
-        if (gameActive) return;
-        score = 0; 
-        gameActive = true;
-        document.getElementById('score-display').innerText = "0";
-        document.getElementById('message-box').style.display = 'none';
-        document.getElementById('bubble-area').innerHTML = ''; // 清空舊氣泡
-        
-        // 遊戲長度：20 秒
-        gameTimer = setTimeout(endGame, 20000);
-        
-        spawnInterval = setInterval(() => {
-            if(gameActive) createBubble(); else clearInterval(spawnInterval);
-        }, 700);
+        score = 0; currentTime = MAX_TIME; gameActive = true;
+        document.getElementById('score-tag').innerText = "得分: 0";
+        document.getElementById('bubble-area').innerHTML = '';
+        const timerInterval = setInterval(() => {
+            if (!gameActive) { clearInterval(timerInterval); return; }
+            currentTime -= 100;
+            document.getElementById('timer-bar').style.width = (currentTime/MAX_TIME*100) + "%";
+            if (currentTime <= 0) endGame();
+        }, 100);
+        spawnBubbles();
+    }
+
+    function spawnBubbles() {
+        if (!gameActive) return;
+        createBubble();
+        setTimeout(spawnBubbles, Math.max(400, 800 - (score * 2)));
     }
 
     function createBubble() {
         const b = document.createElement('div');
         b.className = 'bubble';
+        const isMatch = Math.random() < 0.5;
         const n1 = Math.floor(Math.random() * 11);
-        const isCorrect = Math.random() > 0.4; // 60% 機率正確
-        let n2 = isCorrect ? (10 - n1) : Math.floor(Math.random() * 11);
-        if (!isCorrect && n1 + n2 === 10) n2 = (n2 + 1) % 11;
-
-        b.innerHTML = `<span class="text-xs opacity-80 mb-1">?</span><span class="text-2xl">${n1} + ${n2}</span>`;
-        
+        let n2 = isMatch ? (10 - n1) : Math.floor(Math.random() * 11);
+        if (!isMatch && (n1 + n2 === 10)) n2 = (n2 + 1) % 11;
+        b.innerHTML = `<span class="text-3xl font-black italic">${n1}+${n2}</span>`;
         const size = 100;
-        const colors = ['#f97316', '#fb923c', '#ea580c', '#f59e0b', '#dc2626'];
-        b.style.cssText = `
-            width:${size}px; height:${size}px; 
-            background:${colors[Math.floor(Math.random()*colors.length)]};
-            left:${Math.random()*70}vw; top:100vh;
-        `;
+        b.style.width = size + "px"; b.style.height = size + "px";
+        b.style.left = Math.random() * (window.innerWidth - size) + "px";
+        b.style.top = window.innerHeight + "px";
+        b.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
         document.getElementById('bubble-area').appendChild(b);
-        
-        let pos = 100;
-        const speed = 0.4 + (score / 300); 
+        let pos = window.innerHeight;
         const move = setInterval(() => {
-            pos -= speed; 
-            b.style.top = pos + "vh";
-            if(pos < -20 || !gameActive) { 
-                b.remove(); 
-                clearInterval(move); 
-            }
+            if (!gameActive) { b.remove(); clearInterval(move); return; }
+            pos -= (2 + score/200);
+            b.style.top = pos + "px";
+            if (pos < -size) { b.remove(); clearInterval(move); }
         }, 16);
-
-        const onHit = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!gameActive) return;
-            
+        const hit = () => {
+            if (!gameActive || b.classList.contains('bubble-wrong')) return;
             if (n1 + n2 === 10) {
-                score += 10;
-                b.style.background = "#22c55e"; // 變綠色表示正確
-                b.style.transform = "scale(1.3)";
-                b.style.opacity = "0";
+                playSound('correct'); score += 10; currentTime = Math.min(MAX_TIME, currentTime + 1000);
+                confetti({ particleCount: 20, spread: 50, origin: { x: b.offsetLeft/window.innerWidth, y: b.offsetTop/window.innerHeight }});
+                b.remove(); document.getElementById('score-tag').innerText = "得分: " + score;
             } else {
-                score = Math.max(0, score - 5);
-                b.style.background = "#6b7280"; // 變灰色表示錯誤
+                playSound('wrong'); currentTime -= 3000; b.classList.add('bubble-wrong');
             }
-            document.getElementById('score-display').innerText = score;
-            setTimeout(() => { b.remove(); clearInterval(move); }, 150);
         };
-
-        // 同時支援點擊與觸摸
-        b.addEventListener('mousedown', onHit);
-        b.addEventListener('touchstart', onHit);
+        b.onmousedown = hit; b.ontouchstart = (e) => { e.preventDefault(); hit(); };
     }
 
     async function endGame() {
         gameActive = false;
-        clearInterval(spawnInterval);
-        clearTimeout(gameTimer);
-        
+        playSound('wrong');
         document.getElementById('final-score').innerText = score;
-        document.getElementById('message-box').style.display = 'block';
-        document.getElementById('sync-status').innerHTML = '<div class="loading-spinner w-4 h-4 mr-2"></div> 正在同步分數...';
+        document.getElementById('message-box').classList.remove('hidden');
+        document.getElementById('leaderboard-list').innerHTML = '<div class="text-gray-400 py-4 italic">更新龍虎榜中...</div>';
+        
+        // 1. 上傳分數 (僅限非訪客)
+        if (currentUserId !== "GUEST") {
+            try {
+                await fetch(`${SCRIPT_URL}?id=${encodeURIComponent(currentUserId)}&score=${score}&action=upload`);
+            } catch(e) {}
+        }
+        
+        // 2. 獲取龍虎榜
+        fetchLeaderboard();
+    }
 
+    async function fetchLeaderboard() {
         try {
-            const resp = await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "updateScore", id: studentData.id, score: score })
-            });
-            const res = await resp.json();
-            if(res.success) {
-                document.getElementById('sync-status').innerText = "✅ 分數已更新至雲端試算表";
-                if(score > studentData.highScore) {
-                    studentData.highScore = score;
-                    document.getElementById('player-best-ui').innerText = score;
-                }
-            }
-        } catch (e) {
-            document.getElementById('sync-status').innerText = "❌ 同步失敗 (網路不穩)";
+            const res = await fetch(`${SCRIPT_URL}?action=get_leaderboard`);
+            const data = await res.json(); // 假設回傳格式為 [{id: "S001", score: 500}, ...]
+            displayLeaderboard(data);
+        } catch(e) {
+            document.getElementById('leaderboard-list').innerHTML = '<div class="text-red-400 py-4 italic">無法連線至榜單</div>';
         }
     }
 
-    // 重新開始按鈕
+    function displayLeaderboard(data) {
+        const list = document.getElementById('leaderboard-list');
+        list.innerHTML = '';
+        if (!data || data.length === 0) {
+            list.innerHTML = '<div class="text-gray-400 py-4 italic">尚無排名</div>';
+            return;
+        }
+        data.slice(0, 10).forEach((item, index) => {
+            const row = document.createElement('div');
+            row.className = `rank-item ${index === 0 ? 'rank-1' : ''}`;
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+            row.innerHTML = `
+                <div class="rank-num">${medal}</div>
+                <div class="rank-name">${item.id}</div>
+                <div class="rank-score">${item.score}</div>
+            `;
+            list.appendChild(row);
+        });
+    }
+
     document.getElementById('restart-btn').onclick = () => {
-        document.getElementById('message-box').style.display = 'none';
-        readyGo();
+        document.getElementById('message-box').classList.add('hidden');
+        startGame();
     };
 </script>
+
 </body>
 </html>
