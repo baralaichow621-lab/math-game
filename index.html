@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>合十挑戰 - 學生登入版</title>
+    <title>數學合十挑戰 - 學生登入版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #fff7ed; font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; touch-action: none; }
         #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #fff7ed, #ffedd5); }
+        #bubble-area { position: absolute; inset: 0; z-index: 5; }
         .bubble { 
             position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; 
             color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.15); 
             user-select: none; border: 3px solid rgba(255,255,255,0.4);
             transition: transform 0.1s active;
+            z-index: 10;
         }
         .bubble:active { transform: scale(0.9); }
         .modal { 
@@ -27,12 +29,13 @@
         
         /* 飄浮裝飾背景 */
         .bg-deco { position: absolute; color: rgba(249, 115, 22, 0.05); font-size: 5rem; font-weight: bold; z-index: 0; pointer-events: none; }
+        
+        #ready-timer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; font-weight: 900; color: #f97316; z-index: 200; pointer-events: none; text-shadow: 0 10px 30px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
 <div id="game-container">
-    <!-- 裝飾背景 -->
     <div class="bg-deco" style="top:10%; left:10%;">10</div>
     <div class="bg-deco" style="top:60%; right:15%;">+</div>
     <div class="bg-deco" style="bottom:10%; left:20%;">5+5</div>
@@ -40,7 +43,7 @@
     <!-- 登入畫面 -->
     <div id="login-screen" class="absolute inset-0 bg-orange-500 flex flex-col items-center justify-center text-white z-[300] p-6 text-center">
         <div class="mb-8">
-            <h1 class="text-5xl font-black mb-2 italic">合十冒險王</h1>
+            <h1 class="text-5xl font-black mb-2 italic">數學合十挑戰</h1>
             <p class="opacity-80">MATH ADVENTURE</p>
         </div>
         
@@ -58,8 +61,14 @@
         <p class="mt-8 text-xs opacity-60">數據將同步至 Google Sheets 試算表</p>
     </div>
 
+    <!-- 遊戲中顯示的準備倒數 -->
+    <div id="ready-timer" style="display: none;">3</div>
+
+    <!-- 氣泡產生區域 -->
+    <div id="bubble-area"></div>
+
     <!-- 遊戲 UI -->
-    <div id="ui-layer" class="absolute top-6 left-0 right-0 px-6 pointer-events-none z-10 flex flex-col items-center">
+    <div id="ui-layer" class="absolute top-6 left-0 right-0 px-6 pointer-events-none z-50 flex flex-col items-center">
         <div class="bg-white/90 backdrop-blur px-6 py-2 rounded-full shadow-sm font-bold text-orange-600 mb-3 border border-orange-100">
             👤 <span id="player-name-ui">---</span> | 🏆 最高: <span id="player-best-ui">0</span>
         </div>
@@ -86,13 +95,14 @@
 </div>
 
 <script>
-    // --- 重要：在此貼上你的 Google Apps Script 網址 ---
+    // --- 重要：在此貼上你的 Google Apps Script 網址 (確認結尾是 /exec) ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRYrYmNiYN-fnhjkXxvYeLXiYh9mre-8U9Vn65rSCqg1qFzCsvT91F0JdiOOXqIexg8w/exec";
 
     let studentData = { id: "", name: "", highScore: 0 };
     let score = 0;
     let gameActive = false;
     let gameTimer = null;
+    let spawnInterval = null;
 
     // 處理登入
     document.getElementById('login-btn').onclick = async () => {
@@ -104,45 +114,68 @@
         loading.classList.remove('hidden');
         
         try {
-            // 使用 no-cors 模式在某些預覽環境下會失敗，正常網頁環境則 OK
             const resp = await fetch(SCRIPT_URL, {
                 method: "POST",
-                mode: "cors", 
                 body: JSON.stringify({ action: "login", id: id, password: password })
             });
+            
+            if (!resp.ok) throw new Error("網路連線不穩定 (" + resp.status + ")");
             const result = await resp.json();
 
             if (result.success) {
                 studentData = { id: id, name: result.name, highScore: result.highScore };
                 document.getElementById('player-name-ui').innerText = studentData.name;
                 document.getElementById('player-best-ui').innerText = studentData.highScore;
-                document.getElementById('login-screen').style.transition = "opacity 0.5s";
-                document.getElementById('login-screen').style.opacity = "0";
-                setTimeout(() => { document.getElementById('login-screen').style.display = 'none'; }, 500);
+                
+                // 隱藏登入介面
+                document.getElementById('login-screen').style.display = 'none';
+                
+                // 自動倒數開始遊戲
+                readyGo();
             } else {
-                alert("錯誤: " + result.message);
+                alert("登入失敗: " + result.message);
             }
         } catch (e) {
             console.error(e);
-            alert("連線失敗！\n1. 請確保 Google Script 已發佈為「所有人」\n2. 若在預覽中，請嘗試存為 HTML 檔後直接開啟測試。");
+            alert("連線失敗！請確保已上傳到 GitHub Pages 並發佈 Google Script 為「所有人」。\n原因: " + e.message);
         } finally {
             loading.classList.add('hidden');
         }
     };
 
-    // 遊戲邏輯
+    function readyGo() {
+        const readyEl = document.getElementById('ready-timer');
+        readyEl.style.display = 'block';
+        let count = 3;
+        readyEl.innerText = count;
+
+        const countdown = setInterval(() => {
+            count--;
+            if (count > 0) {
+                readyEl.innerText = count;
+            } else if (count === 0) {
+                readyEl.innerText = "GO!";
+            } else {
+                clearInterval(countdown);
+                readyEl.style.display = 'none';
+                startGame();
+            }
+        }, 1000);
+    }
+
     function startGame() {
         if (gameActive) return;
         score = 0; 
         gameActive = true;
         document.getElementById('score-display').innerText = "0";
         document.getElementById('message-box').style.display = 'none';
+        document.getElementById('bubble-area').innerHTML = ''; // 清空舊氣泡
         
-        // 遊戲長度：15 秒
-        gameTimer = setTimeout(endGame, 15000);
+        // 遊戲長度：20 秒
+        gameTimer = setTimeout(endGame, 20000);
         
-        const spawn = setInterval(() => {
-            if(gameActive) createBubble(); else clearInterval(spawn);
+        spawnInterval = setInterval(() => {
+            if(gameActive) createBubble(); else clearInterval(spawnInterval);
         }, 700);
     }
 
@@ -150,53 +183,60 @@
         const b = document.createElement('div');
         b.className = 'bubble';
         const n1 = Math.floor(Math.random() * 11);
-        const isCorrect = Math.random() > 0.3; // 70% 機率出現正確答案
+        const isCorrect = Math.random() > 0.4; // 60% 機率正確
         let n2 = isCorrect ? (10 - n1) : Math.floor(Math.random() * 11);
-        
-        // 確保錯誤答案真的不是 10
         if (!isCorrect && n1 + n2 === 10) n2 = (n2 + 1) % 11;
 
         b.innerHTML = `<span class="text-xs opacity-80 mb-1">?</span><span class="text-2xl">${n1} + ${n2}</span>`;
         
-        const size = 90;
-        const colors = ['#f97316', '#fb923c', '#ea580c', '#f59e0b'];
+        const size = 100;
+        const colors = ['#f97316', '#fb923c', '#ea580c', '#f59e0b', '#dc2626'];
         b.style.cssText = `
             width:${size}px; height:${size}px; 
             background:${colors[Math.floor(Math.random()*colors.length)]};
-            left:${Math.random()*75}vw; top:100vh;
+            left:${Math.random()*70}vw; top:100vh;
         `;
-        document.getElementById('game-container').appendChild(b);
+        document.getElementById('bubble-area').appendChild(b);
         
         let pos = 100;
-        const speed = 0.3 + (score / 200); // 隨分數增加速度
+        const speed = 0.4 + (score / 300); 
         const move = setInterval(() => {
             pos -= speed; 
             b.style.top = pos + "vh";
-            if(pos < -15 || !gameActive) { b.remove(); clearInterval(move); }
+            if(pos < -20 || !gameActive) { 
+                b.remove(); 
+                clearInterval(move); 
+            }
         }, 16);
 
         const onHit = (e) => {
+            e.preventDefault();
             e.stopPropagation();
             if (!gameActive) return;
+            
             if (n1 + n2 === 10) {
                 score += 10;
-                b.style.transform = "scale(1.5)";
+                b.style.background = "#22c55e"; // 變綠色表示正確
+                b.style.transform = "scale(1.3)";
                 b.style.opacity = "0";
             } else {
                 score = Math.max(0, score - 5);
-                b.style.background = "#6b7280";
+                b.style.background = "#6b7280"; // 變灰色表示錯誤
             }
             document.getElementById('score-display').innerText = score;
-            setTimeout(() => { b.remove(); clearInterval(move); }, 100);
+            setTimeout(() => { b.remove(); clearInterval(move); }, 150);
         };
 
-        b.onclick = onHit;
-        b.ontouchstart = onHit;
+        // 同時支援點擊與觸摸
+        b.addEventListener('mousedown', onHit);
+        b.addEventListener('touchstart', onHit);
     }
 
     async function endGame() {
         gameActive = false;
+        clearInterval(spawnInterval);
         clearTimeout(gameTimer);
+        
         document.getElementById('final-score').innerText = score;
         document.getElementById('message-box').style.display = 'block';
         document.getElementById('sync-status').innerHTML = '<div class="loading-spinner w-4 h-4 mr-2"></div> 正在同步分數...';
@@ -215,15 +255,15 @@
                 }
             }
         } catch (e) {
-            document.getElementById('sync-status').innerText = "❌ 同步失敗 (請檢查網路)";
+            document.getElementById('sync-status').innerText = "❌ 同步失敗 (網路不穩)";
         }
     }
 
-    document.getElementById('restart-btn').onclick = startGame;
-    
-    // 防止點擊 UI 觸發遊戲開始
-    document.getElementById('login-screen').onclick = (e) => e.stopPropagation();
-    document.getElementById('message-box').onclick = (e) => e.stopPropagation();
+    // 重新開始按鈕
+    document.getElementById('restart-btn').onclick = () => {
+        document.getElementById('message-box').style.display = 'none';
+        readyGo();
+    };
 </script>
 </body>
 </html>
