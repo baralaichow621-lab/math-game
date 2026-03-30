@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>數學合十挑戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #fff7ed; font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; touch-action: none; }
+        #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #fff7ed, #ffedd5); }
+        #bubble-area { position: absolute; inset: 0; z-index: 5; }
+        
+        .bubble { 
+            position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.15); 
+            user-select: none; border: 3px solid rgba(255,255,255,0.4);
+            transition: transform 0.1s;
+            z-index: 10;
+        }
+
+        .bubble-wrong {
+            background: #1a1a1a !important;
+            border-color: #333 !important;
+            animation: shake-fade 0.4s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes shake-fade {
+            0% { transform: translateX(0) scale(1); opacity: 1; }
+            25% { transform: translateX(-5px) scale(0.95); }
+            50% { transform: translateX(5px) scale(0.9); }
+            75% { transform: translateX(-5px) scale(0.85); }
+            100% { transform: translateX(0) scale(0); opacity: 0; }
+        }
+
+        .confetti-ray {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+            border-radius: 50px;
+        }
+
+        .modal { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            background: white; padding: 25px; border-radius: 35px; box-shadow: 0 30px 60px rgba(0,0,0,0.25); 
+            text-align: center; z-index: 100; width: 90%; max-width: 420px;
+        }
+        
+        #timer-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 24px; background: rgba(0,0,0,0.1); z-index: 60; overflow: hidden;}
+        #timer-bar { width: 100%; height: 100%; background: #f97316; transition: width 0.1s linear, background-color 0.2s; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.1); }
+        .timer-flash-plus { background-color: #22c55e !important; }
+        .timer-flash-minus { background-color: #ef4444 !important; }
+
+        #ready-timer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; font-weight: 900; color: #f97316; z-index: 200; pointer-events: none; text-shadow: 4px 4px 0 white; }
+
+        .leaderboard-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 15px; background: #fffaf0; margin-bottom: 5px; border-radius: 12px;
+            border-left: 5px solid #f97316;
+        }
+        .leaderboard-rank { font-weight: 900; color: #f97316; width: 30px; }
+        .leaderboard-name { flex-grow: 1; text-align: left; font-weight: bold; margin-left: 10px; color: #444; }
+        .leaderboard-score { font-weight: 900; color: #ea580c; }
+
+        /* 音量按鈕 */
+        #sound-toggle {
+            position: absolute; top: 40px; right: 20px; z-index: 500;
+            background: white; padding: 10px; border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); cursor: pointer;
+            pointer-events: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="timer-bar-container"><div id="timer-bar"></div></div>
+
+    <div id="sound-toggle">🔊</div>
+
+    <!-- 登入畫面 -->
+    <div id="login-screen" class="absolute inset-0 bg-orange-500 flex flex-col items-center justify-center text-white z-[300] p-6 text-center">
+        <h1 class="text-5xl font-black mb-8 italic text-shadow-lg">合十挑戰 10s</h1>
+        <div class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-xs text-gray-800">
+            <input type="text" id="stu-id" placeholder="學生帳號 (ID)" class="border-2 border-orange-100 p-3 rounded-xl w-full mb-3 text-center">
+            <input type="password" id="stu-pass" placeholder="密碼" class="border-2 border-orange-100 p-3 rounded-xl w-full mb-4 text-center">
+            <button id="login-btn" class="bg-orange-500 text-white px-10 py-4 rounded-2xl text-xl font-bold w-full shadow-lg active:scale-95 transition-all border-b-4 border-orange-700">進入挑戰</button>
+            <button id="guest-btn" class="mt-4 text-orange-400 font-bold text-sm">遊客試玩</button>
+        </div>
+    </div>
+
+    <div id="ready-timer" style="display: none;">3</div>
+    <div id="bubble-area"></div>
+
+    <!-- UI 層 -->
+    <div id="ui-layer" class="absolute top-10 left-0 right-0 px-6 pointer-events-none z-50 flex flex-col items-center">
+        <div class="bg-white/95 px-4 py-1 rounded-full shadow-md font-bold text-orange-600 mb-2 border border-orange-100 text-sm">
+            👤 <span id="player-name-ui">---</span>
+        </div>
+        <div class="bg-orange-500 text-white px-8 py-2 rounded-2xl text-2xl font-black shadow-xl border-b-4 border-orange-700">
+            得分: <span id="score-display">0</span>
+        </div>
+    </div>
+
+    <!-- 結束結算 + 龍虎榜 -->
+    <div id="message-box" class="modal" style="display: none;">
+        <h2 class="text-xl font-black mb-1 text-gray-500">挑戰結束！你的得分</h2>
+        <p class="text-5xl font-black mb-4 text-orange-500" id="final-score">0</p>
+        
+        <div id="leaderboard-section" class="mb-6">
+            <h3 class="text-lg font-bold text-orange-600 mb-2 border-b-2 border-orange-100 pb-1">🏆 龍虎榜 (TOP 5)</h3>
+            <div id="leaderboard-content" class="text-sm">
+                <div class="animate-pulse text-gray-400 py-4">載入排名中...</div>
+            </div>
+        </div>
+
+        <div id="sync-status" class="text-[10px] text-gray-300 mb-4 uppercase tracking-widest">---</div>
+        <button id="restart-btn" class="bg-orange-500 text-white px-8 py-4 rounded-2xl font-bold text-xl w-full shadow-lg border-b-4 border-orange-700 active:translate-y-1 active:border-b-0 transition-all">再玩一次</button>
+    </div>
+</div>
+
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRYrYmNiYN-fnhjkXxvYeLXiYh9mre-8U9Vn65rSCqg1qFzCsvT91F0JdiOOXqIexg8w/exec";
+    let studentData = { id: "", name: "", highScore: 0, isGuest: false };
+    let score = 0, gameActive = false, spawnInterval, barInterval;
+    const MAX_DURATION = 10000; 
+    let currentTime = 10000;
+    const CONFETTI_COLORS = ['#FF0000', '#FFD700', '#00FFFF', '#FF00FF', '#00FF00', '#FF4500', '#FFFFFF', '#00BFFF'];
+    
+    // 音效引擎
+    let soundEnabled = true;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+        if (!soundEnabled) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        const now = audioCtx.currentTime;
+        
+        switch(type) {
+            case 'correct':
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.1); // C6
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+                break;
+            case 'wrong':
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+                break;
+            case 'tick':
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+                break;
+            case 'gameover':
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(220, now + 0.5);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+                break;
+        }
+    }
+
+    document.getElementById('sound-toggle').onclick = () => {
+        soundEnabled = !soundEnabled;
+        document.getElementById('sound-toggle').innerText = soundEnabled ? "🔊" : "🔇";
+    };
+
+    // 粒子效果
+    function createConfetti(centerX, centerY) {
+        const rayCount = 30;
+        for (let i = 0; i < rayCount; i++) {
+            const ray = document.createElement('div');
+            ray.className = 'confetti-ray';
+            const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+            const angle = Math.random() * Math.PI * 2;
+            const length = Math.random() * 20 + 15;
+            ray.style.width = length + 'px'; ray.style.height = '4px';
+            ray.style.backgroundColor = color; ray.style.left = centerX + 'px'; ray.style.top = centerY + 'px';
+            ray.style.transform = `rotate(${angle}rad)`; ray.style.transformOrigin = '0 50%';
+            document.getElementById('game-container').appendChild(ray);
+            let dist = 0, force = Math.random() * 12 + 10, op = 1.0;
+            const animate = setInterval(() => {
+                force *= 0.9; dist += force; op -= 0.03;
+                ray.style.left = (centerX + Math.cos(angle) * dist) + 'px';
+                ray.style.top = (centerY + Math.sin(angle) * dist) + 'px';
+                ray.style.opacity = op;
+                if (op <= 0) { ray.remove(); clearInterval(animate); }
+            }, 16);
+        }
+    }
+
+    // 登入處理
+    document.getElementById('guest-btn').onclick = () => {
+        studentData = { id: "guest", name: "Guest 遊客", highScore: 0, isGuest: true };
+        document.getElementById('player-name-ui').innerText = studentData.name;
+        document.getElementById('login-screen').style.display = 'none';
+        readyGo();
+    };
+
+    document.getElementById('login-btn').onclick = async () => {
+        const id = document.getElementById('stu-id').value.trim();
+        const password = document.getElementById('stu-pass').value.trim();
+        if (!id || !password) return;
+        document.getElementById('login-btn').innerText = "連線中...";
+        try {
+            const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "login", id: id, password: password }) });
+            const result = await resp.json();
+            if (result.success) {
+                studentData = { id: id, name: result.name, highScore: result.highScore, isGuest: false };
+                document.getElementById('player-name-ui').innerText = studentData.name;
+                document.getElementById('login-screen').style.display = 'none';
+                readyGo();
+            } else { alert(result.message); }
+        } catch (e) { alert("連線失敗"); }
+        document.getElementById('login-btn').innerText = "進入挑戰";
+    };
+
+    function readyGo() {
+        const readyEl = document.getElementById('ready-timer');
+        readyEl.style.display = 'block';
+        let count = 3; readyEl.innerText = count;
+        playSound('tick');
+        const countdown = setInterval(() => {
+            count--;
+            if (count > 0) {
+                readyEl.innerText = count;
+                playSound('tick');
+            } else if (count === 0) {
+                readyEl.innerText = "GO!";
+                playSound('tick');
+            } else { 
+                clearInterval(countdown); 
+                readyEl.style.display = 'none'; 
+                startGame(); 
+            }
+        }, 800);
+    }
+
+    function startGame() {
+        score = 0; gameActive = true;
+        currentTime = MAX_DURATION;
+        document.getElementById('score-display').innerText = "0";
+        document.getElementById('message-box').style.display = 'none';
+        document.getElementById('bubble-area').innerHTML = ''; 
+        
+        barInterval = setInterval(() => {
+            currentTime -= 100;
+            if (currentTime <= 0) { currentTime = 0; endGame(); }
+            updateTimerBar();
+        }, 100);
+        spawnInterval = setInterval(() => { if(gameActive) createBubble(); }, 600);
+    }
+
+    function updateTimerBar() {
+        const bar = document.getElementById('timer-bar');
+        bar.style.width = (currentTime / MAX_DURATION) * 100 + '%';
+    }
+
+    function flashBar(type) {
+        const bar = document.getElementById('timer-bar');
+        const className = type === 'plus' ? 'timer-flash-plus' : 'timer-flash-minus';
+        bar.classList.add(className);
+        setTimeout(() => bar.classList.remove(className), 200);
+    }
+
+    function createBubble() {
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        const n1 = Math.floor(Math.random() * 11);
+        const isCorrect = Math.random() > 0.4; 
+        let n2 = isCorrect ? (10 - n1) : Math.floor(Math.random() * 11);
+        if (!isCorrect && n1 + n2 === 10) n2 = (n2 + 1) % 11;
+        b.innerHTML = `<span class="text-3xl font-black">${n1} + ${n2}</span>`;
+        
+        const colors = ['#f97316', '#fb923c', '#ea580c', '#ef4444'];
+        b.style.cssText = `width:110px; height:110px; background:${colors[Math.floor(Math.random()*colors.length)]}; left:${10 + Math.random() * 60}vw; top:100vh;`;
+        document.getElementById('bubble-area').appendChild(b);
+        
+        let pos = 100;
+        const speed = 0.6 + (score / 1500); 
+        const move = setInterval(() => {
+            pos -= speed; b.style.top = pos + "vh";
+            if(pos < -20 || !gameActive) { b.remove(); clearInterval(move); }
+        }, 16);
+
+        const onHit = (e) => {
+            e.preventDefault();
+            if (!gameActive || b.classList.contains('bubble-wrong')) return;
+            const rect = b.getBoundingClientRect();
+            if (n1 + n2 === 10) {
+                playSound('correct');
+                score += 10;
+                currentTime = Math.min(MAX_DURATION, currentTime + 1000);
+                flashBar('plus');
+                createConfetti(rect.left + rect.width/2, rect.top + rect.height/2);
+                b.remove(); clearInterval(move);
+            } else {
+                playSound('wrong');
+                score = Math.max(0, score - 5);
+                currentTime = Math.max(0, currentTime - 1000);
+                flashBar('minus');
+                b.classList.add('bubble-wrong');
+                setTimeout(() => { b.remove(); clearInterval(move); }, 400);
+            }
+            document.getElementById('score-display').innerText = score;
+            updateTimerBar();
+        };
+        b.onmousedown = onHit; b.ontouchstart = onHit;
+    }
+
+    async function endGame() {
+        if (!gameActive) return;
+        gameActive = false;
+        playSound('gameover');
+        clearInterval(spawnInterval); clearInterval(barInterval);
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('message-box').style.display = 'block';
+        document.getElementById('leaderboard-content').innerHTML = '<div class="animate-pulse text-gray-400 py-4 italic">載入最新排名中...</div>';
+
+        if (studentData.isGuest) { 
+            document.getElementById('sync-status').innerText = "遊客模式不計分"; 
+            loadLeaderboard();
+            return; 
+        }
+
+        document.getElementById('sync-status').innerText = "正在儲存分數並獲取排名...";
+        try {
+            await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "updateScore", id: studentData.id, score: score }) });
+            document.getElementById('sync-status').innerText = "✅ 分數已儲存";
+            loadLeaderboard();
+        } catch (e) { 
+            document.getElementById('sync-status').innerText = "❌ 儲存失敗"; 
+            loadLeaderboard();
+        }
+    }
+
+    async function loadLeaderboard() {
+        try {
+            const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "getLeaderboard" }) });
+            const result = await resp.json();
+            if (result.success && result.data) {
+                let html = '';
+                result.data.slice(0, 5).forEach((item, index) => {
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                    html += `
+                        <div class="leaderboard-item">
+                            <span class="leaderboard-rank">${index + 1}</span>
+                            <span class="leaderboard-name">${item.name} ${medal}</span>
+                            <span class="leaderboard-score">${item.score}</span>
+                        </div>
+                    `;
+                });
+                document.getElementById('leaderboard-content').innerHTML = html || '<p class="text-gray-400 py-2">暫無排名數據</p>';
+            }
+        } catch (e) {
+            document.getElementById('leaderboard-content').innerHTML = '<p class="text-red-400 py-2">無法獲取排名</p>';
+        }
+    }
+
+    document.getElementById('restart-btn').onclick = () => readyGo();
+</script>
+</body>
+</html>
