@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RPG 登入系統</title>
+</head>
+<body>
+    <div id="login-section">
+        <h2>玩家登入</h2>
+        ID: <input type="text" id="login-id"><br>
+        PW: <input type="password" id="login-pw"><br>
+        <button onclick="login()">登入</button>
+    </div>
+
+    <div id="game-section" style="display:none;">
+        <h2>歡迎, <span id="p-name"></span></h2>
+        <p>職業: <span id="p-job"></span> | 等級: <span id="p-lv"></span> | 戰力: <span id="p-power"></span></p>
+        <button onclick="levelUp()">修練 (LV+1)</button>
+        <button onclick="saveGame()">儲存進度</button>
+    </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxi8Qk9rgDRqjrEnwJrtZhhXDUiSsHm3Ndqy2u6IKV6FJLuPBVat0Z6em-psKH8hIi_NA/exec";
+        let currentPlayer = {};
+
+        async function login() {
+            const id = document.getElementById('login-id').value;
+            const pw = document.getElementById('login-pw').value;
+
+            const res = await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "login", id: id, pw: pw })
+            });
+            const result = await res.json();
+
+            if (result.status === "success") {
+                currentPlayer = { id: id, ...result.data };
+                showGame();
+            } else {
+                alert(result.msg);
+            }
+        }
+
+        function showGame() {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('game-section').style.display = 'block';
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('p-name').innerText = currentPlayer.name;
+            document.getElementById('p-job').innerText = currentPlayer.job;
+            document.getElementById('p-lv').innerText = currentPlayer.lv;
+            document.getElementById('p-power').innerText = currentPlayer.power;
+        }
+
+        function levelUp() {
+            currentPlayer.lv++;
+            currentPlayer.power += 10;
+            updateUI();
+        }
+
+        async function saveGame() {
+            await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "save", ...currentPlayer })
+            });
+            alert("進度已儲存到 Google Sheet！");
+        }
+    </script>
+</body>
+</html>
