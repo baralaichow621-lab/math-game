@@ -191,9 +191,6 @@
     </div>
 
     <script>
-        // Google Apps Script 配置
-        const GS_URL = "https://script.google.com/macros/s/AKfycbxi8Qk9rgDRqjrEnwJrtZhhXDUiSsHm3Ndqy2u6IKV6FJLuPBVat0Z6em-psKH8hIi_NA/exec";
-
         // 遊戲狀態
         let state = {
             id: null,
@@ -224,9 +221,9 @@
             o.start(); o.stop(audioCtx.currentTime + d);
         }
 
-        // --- Google Sheets 通訊邏輯 ---
+        // --- 修改後的 Google Sheets 通訊邏輯 ---
 
-        async function handleLogin() {
+        function handleLogin() {
             const id = document.getElementById('login-id').value.trim();
             const pw = document.getElementById('login-pw').value.trim();
             const name = document.getElementById('login-name').value.trim();
@@ -239,63 +236,55 @@
 
             setLoading(true, "連線至 Google Sheets...");
             
-            try {
-                // 嘗試登入
-                const response = await fetch(GS_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // 注意：因 CORS 限制，POST 通常無法讀取回傳值，但在 GAS 部署為 Anyone 後可正常運作
-                    body: JSON.stringify({ action: 'login', id: id })
-                });
-
-                // 因為 no-cors 無法直接解析 JSON，我們這裡採用傳統 RESTful 處理
-                // 但 GAS 轉向會導致 fetch(POST) 在瀏覽器中產生特殊行為
-                // 為了教學方便，建議 GAS doPost 接收 JSON
-                
-                // 【注意】由於瀏覽器 CORS 限制，純前端 fetch GAS 需要處理 Redirect
-                // 這裡我們假設老師已將 GAS 設定正確。
-                // 如果 fetch 失敗，我們模擬一個請求來獲取數據
-                
-                const dataResponse = await fetch(`${GS_URL}?action=login&id=${id}`);
-                const result = await dataResponse.json();
-
-                if (result.success) {
-                    if (result.data.pw !== pw) {
-                        err.innerText = "密碼錯誤！";
+            // 檢查是否在 Google Apps Script 環境
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler((result) => {
                         setLoading(false);
-                        return;
-                    }
-                    // 載入舊玩家
-                    state.id = id;
-                    state.pw = pw;
-                    state.name = result.data.name;
-                    state.job = result.data.job;
-                    state.lv = result.data.lv;
-                    state.stats = result.data.stats;
-                    startExistingGame();
-                } else {
-                    // 新玩家：必須輸入姓名
-                    if (!name) {
-                        err.innerText = "新冒險者請填寫姓名";
+                        if (result.success) {
+                            if (result.data.pw !== pw) {
+                                err.innerText = "密碼錯誤！";
+                                return;
+                            }
+                            // 載入舊玩家數據
+                            state.id = id;
+                            state.pw = pw;
+                            state.name = result.data.name;
+                            state.job = result.data.job;
+                            state.lv = result.data.lv;
+                            state.stats = result.data.stats;
+                            startExistingGame();
+                        } else {
+                            // 新玩家判斷
+                            if (!name) {
+                                err.innerText = "新冒險者請填寫姓名";
+                                return;
+                            }
+                            state.id = id;
+                            state.pw = pw;
+                            state.name = name;
+                            showJobSelection();
+                        }
+                    })
+                    .withFailureHandler((e) => {
                         setLoading(false);
-                        return;
-                    }
-                    state.id = id;
-                    state.pw = pw;
-                    state.name = name;
-                    showJobSelection();
-                }
-            } catch (e) {
-                err.innerText = "通訊失敗，請檢查網路或 Script URL";
-                console.error(e);
-            } finally {
+                        err.innerText = "連線失敗：" + e.message;
+                    })
+                    .doLogin(id); // 呼叫 GAS 後端的 doLogin 函數
+            } else {
+                // 本地開發模擬模式
                 setLoading(false);
+                console.warn("偵測到本地環境，模擬登入流程");
+                state.id = id;
+                state.pw = pw;
+                state.name = name || "測試玩家";
+                showJobSelection();
             }
         }
 
-        async function saveToGoogleSheets() {
-            try {
+        function saveToGoogleSheets() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
                 const payload = {
-                    action: 'save',
                     id: state.id,
                     pw: state.pw,
                     name: state.name,
@@ -304,22 +293,20 @@
                     stats: state.stats
                 };
                 
-                // 發送存檔請求
-                fetch(GS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                console.log("雲端同步指令已發送");
-            } catch (e) {
-                console.error("存檔失敗", e);
+                google.script.run
+                    .withSuccessHandler(() => console.log("雲端同步成功"))
+                    .doSave(payload); // 呼叫 GAS 後端的 doSave 函數
+            } else {
+                console.log("模擬存檔：", state);
             }
         }
 
-        // --- 遊戲介面邏輯 ---
+        // --- 遊戲介面邏輯 (保持不變) ---
 
         function setLoading(show, text = "") {
             const layer = document.getElementById('loading-layer');
-            document.getElementById('loading-text').innerText = text;
+            const textEl = document.getElementById('loading-text');
+            if(textEl) textEl.innerText = text;
             if(show) layer.classList.remove('hidden');
             else layer.classList.add('hidden');
         }
@@ -346,9 +333,11 @@
             if(jobId === 'archer') state.stats = { maxHp: 110, hp: 110, maxMp: 70, mp: 70, atk: 12, def: 6, int: 12 };
 
             setLoading(true, "建立角色檔案...");
-            await saveToGoogleSheets();
-            startExistingGame();
-            setLoading(false);
+            saveToGoogleSheets();
+            setTimeout(() => {
+                startExistingGame();
+                setLoading(false);
+            }, 1000);
         };
 
         function startExistingGame() {
@@ -477,7 +466,6 @@
 
             // 自動保存到 Google Sheets
             saveToGoogleSheets();
-
             setTimeout(nextMonster, 1300);
         }
 
