@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>小數激戰</title>
+  <!-- 載入 React 核心 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- 載入 Babel 以在瀏覽器編譯 JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 載入 Tailwind CSS 樣式 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 防止選取與瀏覽器預設觸控行為，提升觸控跟手度 */
+    body { 
+      margin: 0; padding: 0; overflow: hidden; background-color: #f1f5f9; 
+      touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    const generateSafeDigits = (length) => {
+      let str = '';
+      for (let i = 0; i < length; i++) {
+        const min = (i === 0 && length > 1) ? 1 : 0;
+        const digit = Math.floor(Math.random() * (7 - min)) + min;
+        str += digit;
+      }
+      return str;
+    };
+
+    const generateSafeDecimal = (integerLength, decimalLength) => {
+      const intPart = generateSafeDigits(integerLength);
+      let decPart = generateSafeDigits(decimalLength);
+      if (parseInt(decPart, 10) === 0) decPart = '1'; 
+      return parseFloat(`${intPart}.${decPart}`);
+    };
+
+    const generateSafeInteger = (length) => {
+      return parseInt(generateSafeDigits(length), 10);
+    };
+
+    const generateQuestion = () => {
+      const isAdd = Math.random() > 0.5;
+      const type = Math.floor(Math.random() * 3);
+      
+      const genInt = () => generateSafeInteger(Math.random() > 0.5 ? 1 : 2);
+      const genDec = () => generateSafeDecimal(Math.random() > 0.5 ? 1 : 2, 1);
+
+      let num1, num2;
+      if (type === 0) { num1 = genDec(); num2 = genDec(); } 
+      else if (type === 1) { num1 = genInt(); num2 = genDec(); } 
+      else { num1 = genDec(); num2 = genInt(); }
+
+      if (!isAdd && num1 < num2) {
+        const temp = num1; num1 = num2; num2 = temp;
+      }
+
+      let answer;
+      if (isAdd) {
+        answer = Math.round((num1 + num2) * 100) / 100;
+      } else {
+        answer = Math.round((num1 - num2) * 100) / 100;
+      }
+
+      const qText = `${num1} ${isAdd ? '+' : '-'} ${num2} = ?`;
+      return { qText, answer: answer.toString() };
+    };
+
+    const MAX_HP = 100;
+    const DAMAGE_PER_HIT = 20;
+
+    const CHARACTERS = [
+      'https://baralaichow621-lab.github.io/math-game/mon1.png',
+      'https://baralaichow621-lab.github.io/math-game/mon2.png',
+      'https://baralaichow621-lab.github.io/math-game/mon3.png',
+      'https://baralaichow621-lab.github.io/math-game/mon4.png',
+      'https://baralaichow621-lab.github.io/math-game/mon5.png',
+      'https://baralaichow621-lab.github.io/math-game/mon6.png',
+    ];
+
+    const playShootSound = () => {
+      const audio = new Audio("https://commondatastorage.googleapis.com/codeskulptor-assets/sounddogs/missile.ogg");
+      audio.volume = 0.5;
+      audio.play().catch(e => console.warn(e));
+    };
+
+    const playHitSound = () => {
+      const audio = new Audio("https://commondatastorage.googleapis.com/codeskulptor-assets/sounddogs/explosion.ogg");
+      audio.volume = 0.6;
+      audio.play().catch(e => console.warn(e));
+    };
+
+    const Numpad = ({ team, onKeyPress, onAttack, error, input, hp }) => {
+      const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'DEL'];
+      const teamColorClass = team === 'A' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-indigo-500 hover:bg-indigo-600';
+      const borderColorClass = error ? 'border-red-500 bg-red-50 animate-pulse' : (team === 'A' ? 'border-rose-300' : 'border-indigo-300');
+      const hpBgClass = team === 'A' ? 'bg-gradient-to-r from-rose-300 to-rose-400' : 'bg-gradient-to-r from-indigo-300 to-indigo-400';
+      
+      return (
+        <div className="w-full h-full max-w-lg mx-auto flex flex-col p-1 sm:p-2 gap-1 sm:gap-2">
+          {/* 輸入框 (背景做為血條) */}
+          <div className={`relative w-full bg-white h-10 sm:h-12 md:h-14 rounded-lg md:rounded-xl border-2 md:border-4 ${borderColorClass} flex items-center justify-center shadow-inner overflow-hidden shrink-0`}>
+             <div className={`absolute top-0 left-0 h-full ${hpBgClass} transition-all duration-300`} style={{ width: `${(hp / MAX_HP) * 100}%` }}></div>
+             <span className="relative z-10 text-lg sm:text-2xl md:text-3xl font-black text-slate-800 tracking-widest whitespace-nowrap overflow-hidden drop-shadow-md">
+                {input || <span className="text-slate-600/70 text-sm md:text-2xl font-bold">輸入...</span>}
+             </span>
+             <span className="absolute right-2 sm:right-4 z-10 text-[10px] sm:text-sm font-black text-slate-800 drop-shadow-sm bg-white/60 px-1.5 py-0.5 sm:px-2 rounded-full border border-white/50 backdrop-blur-sm">
+                {hp} / {MAX_HP}
+             </span>
+          </div>
+
+          {/* 鍵盤區 */}
+          <div className="flex flex-row gap-1 sm:gap-2 flex-1 min-h-0">
+            <div className="grid grid-cols-3 grid-rows-4 gap-1 sm:gap-2 flex-[0.75]">
+              {keys.map(key => (
+                <button
+                  key={key}
+                  onClick={() => onKeyPress(team, key)}
+                  className="bg-white shadow-sm border-b-[3px] border-gray-200 rounded-lg text-base sm:text-xl md:text-2xl font-bold text-gray-700 active:translate-y-[2px] active:border-b-0 transition-all select-none flex items-center justify-center h-full w-full touch-manipulation"
+                >
+                  {key === 'DEL' ? '⌫' : key}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => onAttack(team)}
+              className={`flex-[0.25] ${teamColorClass} text-white shadow-sm border-b-[3px] border-black/20 rounded-lg flex flex-col items-center justify-center p-1 text-base sm:text-xl md:text-3xl font-black active:translate-y-[2px] active:border-b-0 transition-all select-none leading-tight h-full w-full touch-manipulation`}
+            >
+              <span>發射</span>
+              <span>攻擊</span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [gameState, setGameState] = useState('menu');
+      const [winner, setWinner] = useState(null);
+      const bgmRef = useRef(null);
+      const victoryRef = useRef(null);
+
+      useEffect(() => {
+        const audioUrl = "https://baralaichow621-lab.github.io/math-game/battle_theme1.mp3"; 
+        const audio = new Audio(audioUrl);
+        audio.loop = true;
+        audio.volume = 0.245; // 音量已降至約 70%
+        bgmRef.current = audio;
+
+        const victoryAudio = new Audio("https://baralaichow621-lab.github.io/math-game/victory.mp3");
+        victoryAudio.loop = false;
+        victoryAudio.volume = 0.6;
+        victoryRef.current = victoryAudio;
+
+        return () => {
+          audio.pause(); audio.src = "";
+          victoryAudio.pause(); victoryAudio.src = "";
+        };
+      }, []);
+
+      const [teamA, setTeamA] = useState({ hp: MAX_HP, question: { qText: '', answer: '' }, input: '', animating: false, error: false, image: CHARACTERS[0], combo: 0, lastDamageTaken: 0 });
+      const [teamB, setTeamB] = useState({ hp: MAX_HP, question: { qText: '', answer: '' }, input: '', animating: false, error: false, image: CHARACTERS[1], combo: 0, lastDamageTaken: 0 });
+
+      const startGame = () => {
+        const shuffled = [...CHARACTERS].sort(() => 0.5 - Math.random());
+        setTeamA({ hp: MAX_HP, question: generateQuestion(), input: '', animating: false, error: false, image: shuffled[0], combo: 0, lastDamageTaken: 0 });
+        setTeamB({ hp: MAX_HP, question: generateQuestion(), input: '', animating: false, error: false, image: shuffled[1], combo: 0, lastDamageTaken: 0 });
+        setWinner(null);
+        setGameState('playing');
+        
+        if (victoryRef.current) { victoryRef.current.pause(); victoryRef.current.currentTime = 0; }
+        if (bgmRef.current) { bgmRef.current.currentTime = 0; bgmRef.current.play().catch(e => console.warn(e)); }
+      };
+
+      const handleKeyPress = (team, key) => {
+        if (gameState !== 'playing') return;
+        const setTeam = team === 'A' ? setTeamA : setTeamB;
+        setTeam(prev => {
+          let newInput = prev.input;
+          if (key === 'DEL') newInput = newInput.slice(0, -1);
+          else if (key === '.') { if (!newInput.includes('.')) newInput += key; } 
+          else { if (newInput.length < 6) newInput += key; }
+          return { ...prev, input: newInput, error: false };
+        });
+      };
+
+      const checkAnswer = (team) => {
+        if (gameState !== 'playing') return;
+        const currentTeam = team === 'A' ? teamA : teamB;
+        const opponentTeam = team === 'A' ? teamB : teamA;
+        const setOpponent = team === 'A' ? setTeamB : setTeamA;
+        const setCurrent = team === 'A' ? setTeamA : setTeamB;
+
+        if (currentTeam.input === currentTeam.question.answer) {
+          playShootSound();
+          const newCombo = currentTeam.combo + 1;
+          const damage = DAMAGE_PER_HIT + Math.max(0, newCombo - 1);
+          const newOpponentHp = Math.max(0, opponentTeam.hp - damage);
+          
+          setCurrent(prev => ({ ...prev, animating: true, input: '', question: generateQuestion(), combo: newCombo }));
+          setOpponent(prev => ({ ...prev, hp: newOpponentHp, lastDamageTaken: damage }));
+
+          setTimeout(() => { playHitSound(); }, 250);
+          setTimeout(() => { setCurrent(prev => ({ ...prev, animating: false })); }, 500);
+
+          if (newOpponentHp <= 0) {
+            setWinner(team); setGameState('gameover');
+            if (bgmRef.current) bgmRef.current.pause();
+            if (victoryRef.current) { victoryRef.current.currentTime = 0; victoryRef.current.play().catch(e => console.warn(e)); }
+          }
+        } else {
+          const newHp = Math.max(0, currentTeam.hp - 1);
+          setCurrent(prev => ({ ...prev, hp: newHp, combo: 0, error: true, input: '' }));
+          setTimeout(() => { setCurrent(prev => ({ ...prev, error: false })); }, 500);
+          
+          if (newHp <= 0) {
+            setWinner(team === 'A' ? 'B' : 'A'); setGameState('gameover');
+            if (bgmRef.current) bgmRef.current.pause();
+            if (victoryRef.current) { victoryRef.current.currentTime = 0; victoryRef.current.play().catch(e => console.warn(e)); }
+          }
+        }
+      };
+
+      return (
+        <div className="h-[100dvh] w-screen flex flex-col overflow-hidden bg-slate-100 font-sans touch-none select-none">
+          <style>{`
+            @keyframes shoot-right { 0% { left: 15%; opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1); } 80% { left: 70%; opacity: 1; transform: scale(1.5); } 100% { left: 80%; opacity: 0; transform: scale(2); } }
+            @keyframes shoot-left { 0% { right: 15%; opacity: 0; transform: scale(0.5) rotate(180deg); } 20% { opacity: 1; transform: scale(1) rotate(180deg); } 80% { right: 70%; opacity: 1; transform: scale(1.5) rotate(180deg); } 100% { right: 80%; opacity: 0; transform: scale(2) rotate(180deg); } }
+            @keyframes hit-burst { 0% { transform: scale(0.2); opacity: 0.8; } 50% { opacity: 1; } 100% { transform: scale(3.5); opacity: 0; } }
+            @keyframes damage-pop { 0% { opacity: 0; transform: translateY(10px) scale(0.5); } 20% { opacity: 1; transform: translateY(0) scale(1.2); } 80% { opacity: 1; transform: translateY(-5px) scale(1); } 100% { opacity: 0; transform: translateY(-20px) scale(0.8); } }
+            .beam-a { animation: shoot-right 0.35s ease-in-out forwards; z-index: 40; }
+            .beam-b { animation: shoot-left 0.35s ease-in-out forwards; z-index: 40; }
+            .hit-effect { opacity: 0; animation: hit-burst 0.4s cubic-bezier(0.1, 0.8, 0.3, 1) 0.3s forwards; z-index: 35; }
+            .damage-text { opacity: 0; animation: damage-pop 0.6s ease-out 0.25s forwards; z-index: 50; }
+            .self-damage-text { opacity: 0; animation: damage-pop 0.6s ease-out forwards; z-index: 50; }
+          `}</style>
+          
+          <div className="h-8 md:h-12 bg-white shadow flex justify-center items-center shrink-0 z-10">
+            <h1 className="text-sm md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-indigo-500 tracking-wider">⚔️ 小數激戰 ⚔️</h1>
+          </div>
+
+          <div 
+            className="flex-[0.4] md:flex-[0.55] relative bg-cover bg-center bg-no-repeat border-b-2 border-slate-300 flex justify-between items-end px-2 md:px-16 pb-4 md:pb-8 overflow-hidden"
+            style={{ backgroundImage: `url('https://baralaichow621-lab.github.io/math-game/battle_bg.png')`, backgroundColor: '#87CEEB' }}
+          >
+             <div className="absolute top-2 left-1/2 -translate-x-1/2 text-white/80 font-black drop-shadow-md text-base md:text-4xl whitespace-nowrap pointer-events-none z-10">MATH ARENA</div>
+
+             {/* Team A 的攻擊光束 */}
+             {teamA.animating && (
+               <div className="absolute bottom-[35%] beam-a flex items-center pointer-events-none">
+                 <div className="w-20 md:w-32 h-4 md:h-6 bg-gradient-to-r from-transparent via-rose-400 to-white rounded-full blur-[2px]"></div>
+                 <div className="w-10 h-10 md:w-16 md:h-16 bg-white rounded-full shadow-[0_0_20px_10px_rgba(244,63,94,0.9)] -ml-4 flex items-center justify-center"></div>
+               </div>
+             )}
+             
+             {/* Team B 的攻擊光束 */}
+             {teamB.animating && (
+               <div className="absolute bottom-[35%] beam-b flex items-center pointer-events-none">
+                 <div className="w-20 md:w-32 h-4 md:h-6 bg-gradient-to-r from-transparent via-cyan-400 to-white rounded-full blur-[2px]"></div>
+                 <div className="w-10 h-10 md:w-16 md:h-16 bg-white rounded-full shadow-[0_0_20px_10px_rgba(6,182,212,0.9)] -ml-4 flex items-center justify-center"></div>
+               </div>
+             )}
+             
+             {/* Team A Visuals */}
+             <div className="relative flex flex-col items-center w-[45%] z-20">
+                <div className="h-4 md:h-6 mb-1">
+                  {teamA.combo > 1 && <span className="text-orange-500 font-black text-[10px] md:text-base drop-shadow-md animate-pulse">🔥 {teamA.combo} 連擊！</span>}
+                </div>
+                {gameState === 'playing' && (
+                  <div className="bg-white p-1.5 md:p-3 rounded-lg md:rounded-xl border-2 border-rose-300 shadow-md mb-2 flex items-center justify-center max-w-full relative z-30">
+                    <h2 className="font-black text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: 'clamp(11px, 4vw, 24px)' }}>{teamA.question.qText}</h2>
+                  </div>
+                )}
+                <div className="relative">
+                  <img src={teamA.image} className={`w-16 h-16 sm:w-20 sm:h-20 md:w-32 md:h-32 object-contain drop-shadow-xl ${teamA.animating ? 'scale-110 -translate-y-2' : 'animate-bounce'} transition-transform duration-200`} alt="teamA" />
+                  {/* B 攻擊 A 的受擊特效 */}
+                  {teamB.animating && <div className="absolute inset-0 m-auto w-16 h-16 md:w-24 md:h-24 bg-rose-500 rounded-full hit-effect blur-md pointer-events-none"></div>}
+                </div>
+                
+                {teamA.error && <div className="absolute top-1/4 z-50 self-damage-text text-red-600 font-black text-4xl drop-shadow-lg">-1</div>}
+                {teamB.animating && <div className="absolute top-1/4 z-50 damage-text text-red-500 font-black text-5xl md:text-6xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">-{teamA.lastDamageTaken}</div>}
+             </div>
+             
+             {/* Team B Visuals */}
+             <div className="relative flex flex-col items-center w-[45%] z-20">
+                <div className="h-4 md:h-6 mb-1">
+                  {teamB.combo > 1 && <span className="text-orange-500 font-black text-[10px] md:text-base drop-shadow-md animate-pulse">🔥 {teamB.combo} 連擊！</span>}
+                </div>
+                {gameState === 'playing' && (
+                  <div className="bg-white p-1.5 md:p-3 rounded-lg md:rounded-xl border-2 border-indigo-300 shadow-md mb-2 flex items-center justify-center max-w-full relative z-30">
+                    <h2 className="font-black text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: 'clamp(11px, 4vw, 24px)' }}>{teamB.question.qText}</h2>
+                  </div>
+                )}
+                <div className="relative">
+                  <img src={teamB.image} className={`w-16 h-16 sm:w-20 sm:h-20 md:w-32 md:h-32 object-contain drop-shadow-xl ${teamB.animating ? 'scale-110 -translate-y-2' : 'animate-bounce'} transition-transform duration-200`} style={{ animationDelay: '0.2s' }} alt="teamB" />
+                  {/* A 攻擊 B 的受擊特效 */}
+                  {teamA.animating && <div className="absolute inset-0 m-auto w-16 h-16 md:w-24 md:h-24 bg-cyan-500 rounded-full hit-effect blur-md pointer-events-none"></div>}
+                </div>
+                
+                {teamB.error && <div className="absolute top-1/4 z-50 self-damage-text text-red-600 font-black text-4xl drop-shadow-lg">-1</div>}
+                {teamA.animating && <div className="absolute top-1/4 z-50 damage-text text-red-500 font-black text-5xl md:text-6xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">-{teamB.lastDamageTaken}</div>}
+             </div>
+          </div>
+
+          {/* 手機版直排、電腦版橫排 */}
+          <div className="flex-[0.6] md:flex-[0.45] flex flex-col md:flex-row w-full overflow-hidden bg-slate-200">
+            <div className="flex-1 bg-rose-50 border-b md:border-b-0 md:border-r border-slate-300 flex flex-col justify-center min-h-0">
+              <Numpad team="A" onKeyPress={handleKeyPress} onAttack={checkAnswer} error={teamA.error} input={teamA.input} hp={teamA.hp} />
+            </div>
+            <div className="flex-1 bg-indigo-50 border-t md:border-t-0 md:border-l border-slate-300 flex flex-col justify-center min-h-0">
+              <Numpad team="B" onKeyPress={handleKeyPress} onAttack={checkAnswer} error={teamB.error} input={teamB.input} hp={teamB.hp} />
+            </div>
+          </div>
+
+          {gameState !== 'playing' && (
+            <div className="absolute inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl p-6 md:p-12 shadow-2xl flex flex-col items-center max-w-lg w-full text-center">
+                {gameState === 'menu' ? (
+                  <>
+                    <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-4">小數激戰</h1>
+                    <p className="text-slate-600 mb-8 text-sm md:text-lg">計算小數加減法，發射炮彈擊敗對手！<br/>支援手機與平板遊玩。</p>
+                    <button onClick={startGame} className="bg-gradient-to-r from-green-400 to-emerald-500 text-white font-black text-xl md:text-2xl px-10 py-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all">開始遊戲</button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-6xl md:text-8xl mb-4 animate-bounce">🏆</span>
+                    <h2 className={`text-3xl md:text-4xl font-black mb-4 ${winner === 'A' ? 'text-rose-500' : 'text-indigo-500'}`}>
+                      {winner === 'A' ? '紅隊 (TEAM A)' : '藍隊 (TEAM B)'} 獲勝！
+                    </h2>
+                    <button onClick={startGame} className="bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black text-xl md:text-2xl px-10 py-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all">再玩一次</button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
