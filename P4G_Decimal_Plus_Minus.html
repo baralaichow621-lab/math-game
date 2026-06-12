@@ -25,39 +25,57 @@
   <script type="text/babel">
     const { useState, useRef, useEffect } = React;
 
-    const generateSafeDigits = (length) => {
-      let str = '';
-      for (let i = 0; i < length; i++) {
-        const min = (i === 0 && length > 1) ? 1 : 0;
-        const digit = Math.floor(Math.random() * (7 - min)) + min;
-        str += digit;
-      }
-      return str;
+    // --- 全新的簡化版題目生成工具 ---
+    
+    // 產生 1~9 的整數
+    const getSimpleInt = () => Math.floor(Math.random() * 9) + 1; 
+
+    // 產生 1 位小數 (例如 3.5, 整數部分 1~9，小數部分 1~9)
+    const getSimple1Dec = () => {
+      const i = Math.floor(Math.random() * 9) + 1;
+      const d = Math.floor(Math.random() * 9) + 1;
+      return parseFloat(`${i}.${d}`);
     };
 
-    const generateSafeDecimal = (integerLength, decimalLength) => {
-      const intPart = generateSafeDigits(integerLength);
-      let decPart = generateSafeDigits(decimalLength);
-      if (parseInt(decPart, 10) === 0) decPart = '1'; 
-      return parseFloat(`${intPart}.${decPart}`);
-    };
-
-    const generateSafeInteger = (length) => {
-      return parseInt(generateSafeDigits(length), 10);
+    // 產生 2 位小數 (例如 4.25, 整數部分 1~9，小數第二位確保不為0)
+    const getSimple2Dec = () => {
+      const i = Math.floor(Math.random() * 9) + 1;
+      const d1 = Math.floor(Math.random() * 10);
+      const d2 = Math.floor(Math.random() * 9) + 1;
+      return parseFloat(`${i}.${d1}${d2}`);
     };
 
     const generateQuestion = () => {
       const isAdd = Math.random() > 0.5;
-      const type = Math.floor(Math.random() * 3);
-      
-      const genInt = () => generateSafeInteger(Math.random() > 0.5 ? 1 : 2);
-      const genDec = () => generateSafeDecimal(Math.random() > 0.5 ? 1 : 2, 1);
+      const type = Math.floor(Math.random() * 4); // 4種指定題型
 
       let num1, num2;
-      if (type === 0) { num1 = genDec(); num2 = genDec(); } 
-      else if (type === 1) { num1 = genInt(); num2 = genDec(); } 
-      else { num1 = genDec(); num2 = genInt(); }
+      
+      switch(type) {
+        case 0: // 題型一：整數與一位小數
+          num1 = getSimpleInt();
+          num2 = getSimple1Dec();
+          break;
+        case 1: // 題型二：一位小數與一位小數
+          num1 = getSimple1Dec();
+          num2 = getSimple1Dec();
+          break;
+        case 2: // 題型三：二位小數與一位小數
+          num1 = getSimple2Dec();
+          num2 = getSimple1Dec();
+          break;
+        case 3: // 題型四：整數與二位小數
+          num1 = getSimpleInt();
+          num2 = getSimple2Dec();
+          break;
+      }
 
+      // 隨機對調左右數字，增加變化 (例如有時是 整數+小數，有時是 小數+整數)
+      if (Math.random() > 0.5) {
+        const temp = num1; num1 = num2; num2 = temp;
+      }
+
+      // 若為減法，確保大減小（避免負數）
       if (!isAdd && num1 < num2) {
         const temp = num1; num1 = num2; num2 = temp;
       }
