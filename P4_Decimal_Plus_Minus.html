@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小四數學：小數加減法</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@400;700;900&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', 'Noto Sans TC', sans-serif;
+            background-color: #fffbeb; /* 溫暖柔和的黃色背景 */
+            background-image: radial-gradient(#fde68a 3px, transparent 3px);
+            background-size: 30px 30px;
+            overscroll-behavior-y: contain; 
+            touch-action: manipulation;
+        }
+        .math-font {
+            font-family: 'Nunito', 'Fredoka One', monospace;
+        }
+        
+        /* 浮動動畫 (小老師公仔用) */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .workspace-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 20px;
+            padding: 24px 12px;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.05);
+            overflow-x: hidden; 
+            border: 3px solid #e2e8f0;
+        }
+
+        .math-grid {
+            display: grid;
+            grid-template-columns: 40px 45px 45px 15px 45px 45px;
+            gap: 4px;
+            font-size: 2.2rem;
+            line-height: 2.5rem;
+            justify-content: center;
+            text-align: center;
+            font-family: 'Nunito', monospace;
+        }
+        
+        .math-cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50px;
+            position: relative;
+        }
+        
+        .math-cell.dot-cell {
+            width: 15px;
+            justify-content: center;
+            color: #475569;
+            font-weight: 900;
+        }
+
+        .ones-col-bg {
+            background-color: #fef08a; /* 鮮明黃色 */
+            border: 3px solid #eab308;
+            border-radius: 8px;
+        }
+        .ones-col-header {
+            color: #ca8a04;
+            font-weight: 900;
+            background-color: #fef08a;
+            border-radius: 6px;
+            padding: 2px;
+            border: 2px solid #eab308;
+        }
+
+        .place-value-header {
+            font-size: 0.9rem;
+            color: #64748b;
+            font-weight: bold;
+            border-bottom: 3px dashed #cbd5e1;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #dragItem {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            touch-action: none; 
+            z-index: 50;
+            transition: transform 0.05s linear; 
+        }
+        #dragItem.dragging {
+            cursor: grabbing;
+            transform: scale(1.1) rotate(-2deg); /* 拖拉時有俏皮的傾斜 */
+            opacity: 0.95;
+        }
+
+        .drag-inner-grid {
+            display: grid;
+            gap: 4px;
+            background-color: #f0f9ff;
+            border: 4px solid #38bdf8;
+            border-radius: 12px;
+            box-shadow: 0 6px 0 #0284c7; /* 積木立體感 */
+            padding: 4px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px; /* 為陰影留空間 */
+        }
+        .drag-cell {
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            color: #0369a1;
+            font-size: 2.2rem;
+            font-family: 'Nunito', monospace;
+        }
+        .drag-cell.num-cell { width: 45px; } 
+        .drag-cell.dot-cell { width: 15px; }
+
+        .snap-row {
+            grid-column: 2 / -1; 
+            height: 54px;
+            position: relative;
+        }
+
+        .snap-guides {
+            display: grid; 
+            grid-template-columns: 45px 45px 15px 45px 45px; 
+            gap: 4px; 
+            height: 100%; 
+            position: absolute; 
+            top:0; left:0; 
+            pointer-events: none;
+            width: 100%;
+        }
+
+        .grid-line {
+            grid-column: 1 / -1;
+            border-bottom: 5px solid #334155;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+
+        #dragPool {
+            min-height: 90px;
+            background-color: #f1f5f9;
+            border-radius: 16px;
+            border: 4px dashed #94a3b8;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            touch-action: none;
+        }
+
+        .pad-zero-btn {
+            width: 100%;
+            height: 100%;
+            background-color: #bbf7d0; 
+            border: 3px dashed #22c55e; 
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #166534;
+            font-weight: 900;
+            font-family: 'Noto Sans TC', sans-serif;
+            animation: pulse-border 1.5s infinite;
+            transition: all 0.2s;
+        }
+        .pad-zero-btn.dot-btn { font-size: 1.4rem; }
+        .pad-zero-btn:hover { background-color: #86efac; border-style: solid; transform: scale(1.05); }
+        .pad-zero-btn:active { transform: scale(0.95); }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+            70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        .ans-input-cell {
+            width: 100%;
+            height: 100%;
+            border: 3px solid #cbd5e1;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #6d28d9; /* 活潑的紫色 */
+            font-family: 'Nunito', monospace;
+            background-color: white;
+            transition: all 0.2s;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .ans-input-cell.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            background-color: #f8fafc;
+        }
+
+        .ans-input-cell.active-cell {
+            border-color: #a855f7;
+            box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.3);
+            background-color: #faf5ff;
+        }
+
+        .ans-input-cell.correct {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+            color: #166534;
+        }
+        .ans-input-cell.incorrect {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            color: #b91c1c;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        .ans-input-cell.dot-input {
+            width: 15px;
+            border: 3px solid #cbd5e1;
+            background: white;
+            font-size: 2rem;
+            color: #6d28d9;
+            pointer-events: auto;
+            border-radius: 6px;
+        }
+        .ans-input-cell.dot-input.active-cell {
+            border-color: #a855f7;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.3);
+            background-color: #faf5ff;
+        }
+        
+        #calculationAreaWrapper { transition: opacity 0.3s; }
+        #calculationAreaWrapper.locked { opacity: 0.5; pointer-events: none; }
+
+        .num-btn {
+            background-color: #ffffff;
+            border: 2px solid #bae6fd;
+            border-bottom: 6px solid #7dd3fc; /* 積木感底邊 */
+            border-radius: 16px;
+            height: 64px;
+            font-size: 2rem;
+            font-weight: 900;
+            color: #0284c7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.1s;
+            touch-action: manipulation; 
+        }
+        .num-btn:active {
+            border-bottom-width: 2px;
+            transform: translateY(4px);
+            background-color: #e0f2fe;
+        }
+        .num-btn.btn-action {
+            background-color: #fff1f2;
+            border-color: #fecdd3;
+            border-bottom-color: #fb7185;
+            color: #e11d48;
+        }
+        .num-btn.btn-action:active {
+            background-color: #ffe4e6;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .math-grid.tutorial {
+            font-size: 1.5rem;
+            line-height: 2rem;
+            grid-template-columns: 30px 30px 30px 10px 30px 30px;
+        }
+        .math-grid.tutorial .math-cell { height: 35px; }
+        .math-grid.tutorial .math-cell.dot-cell { width: 10px; }
+        .math-grid.tutorial .place-value-header { font-size: 0.75rem; margin-bottom: 4px; }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4 text-gray-800">
+
+    <div class="max-w-5xl mx-auto space-y-6 md:space-y-8">
+        
+        <!-- Header 繽紛版 -->
+        <div class="text-center bg-white p-5 md:p-6 rounded-[2rem] shadow-[0_8px_0_#f472b6] border-4 border-pink-400">
+            <h1 class="text-3xl md:text-5xl font-black text-pink-500 mb-6 tracking-wide math-font drop-shadow-sm">🎈 小數加減法樂園 🎈</h1>
+            
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 bg-pink-50 p-4 rounded-3xl border-2 border-dashed border-pink-300 inline-flex w-full max-w-2xl mx-auto shadow-sm">
+                <img src="https://baralaichow621-lab.github.io/math-game/mon1.png" alt="小老師" class="w-24 h-24 object-contain drop-shadow-md animate-float">
+                <p class="text-base md:text-xl text-gray-700 text-left leading-relaxed">
+                    <span class="font-black text-pink-600 text-xl md:text-2xl bg-white px-3 py-1 rounded-xl shadow-sm border border-pink-200">重點秘訣：</span><br>
+                    <span class="inline-block mt-2 font-bold">「計算時要<strong class="text-blue-600 text-2xl">由右至左</strong>，<br>連<strong class="text-red-500 text-2xl">小數點</strong>都要自己輸入呀！」</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex justify-center gap-2 md:gap-6 pt-4">
+            <button id="addModeBtn" onclick="switchMode('add')" class="tab-btn active px-6 py-2 md:px-10 md:py-4 rounded-t-3xl font-black text-lg md:text-2xl border-4 border-b-0 transition-all border-blue-400 bg-blue-400 text-white translate-y-1 z-20 relative shadow-md">
+                ➕ 學習加法
+            </button>
+            <button id="subModeBtn" onclick="switchMode('sub')" class="tab-btn inactive px-6 py-2 md:px-10 md:py-4 rounded-t-3xl font-black text-lg md:text-2xl border-4 border-b-0 transition-all border-gray-300 bg-gray-100 text-gray-500 hover:bg-red-50 z-10 relative">
+                ➖ 學習減法
+            </button>
+        </div>
+
+        <div class="main-content-box bg-white p-4 md:p-8 rounded-b-[2rem] rounded-tr-[2rem] shadow-[0_8px_0_#60a5fa] border-4 border-blue-400 -mt-2 relative z-10">
+            
+            <div id="tutorialSection" class="mb-8 bg-cyan-50 p-5 md:p-6 rounded-3xl border-4 border-cyan-200 shadow-sm">
+                <h2 class="text-xl md:text-2xl font-black text-cyan-700 mb-4 border-b-4 border-dashed border-cyan-200 pb-3 flex items-center gap-2">
+                    <span class="text-3xl">📖</span> 例題教學：請看示範
+                </h2>
+                
+                <div class="grid md:grid-cols-2 gap-6 items-center">
+                    <div>
+                        <p class="text-base md:text-xl mb-2 font-bold text-gray-700 leading-relaxed" id="tutorialDesc"></p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border-4 border-cyan-100 flex justify-center shadow-inner">
+                        <div class="math-grid tutorial" id="tutorialGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-8 border-t-4 border-dashed border-gray-200">
+
+            <div>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl md:text-3xl font-black text-gray-800 flex items-center gap-2">
+                        <span class="text-4xl">🖐️</span> 動手對齊與計算
+                    </h2>
+                    <div class="bg-amber-300 text-amber-900 px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-lg md:text-xl shadow-[0_4px_0_#d97706] border-2 border-amber-400 transform -rotate-2">
+                        得分：<span id="scoreDisplay" class="text-3xl">0</span>
+                    </div>
+                </div>
+
+                <div class="text-center mb-8">
+                    <div class="text-gray-500 font-bold mb-2 text-base md:text-lg" id="questionTypeLabel">題型：載入中...</div>
+                    <div class="text-4xl md:text-6xl font-black math-font text-gray-800 bg-white py-6 rounded-3xl border-4 border-purple-300 shadow-[0_6px_0_#d8b4fe] flex justify-center items-center gap-3 md:gap-6" id="questionDisplay"></div>
+                </div>
+
+                <div id="instructionBanner" class="bg-blue-100 text-blue-800 p-3 md:p-4 rounded-2xl text-center font-black mb-8 text-lg md:text-xl border-4 border-blue-300 shadow-sm animate-pulse">
+                    👉 第一步：請將下方數字拖拉到直式中，對齊「個位」！
+                </div>
+
+                <div class="flex flex-col lg:flex-row gap-8 lg:gap-12 items-center lg:items-start justify-center">
+                    
+                    <!-- 左邊：直式計算區 -->
+                    <div class="w-full max-w-md bg-white p-5 md:p-8 rounded-[2rem] border-4 border-gray-200 shadow-[0_8px_0_#cbd5e1] relative">
+                        
+                        <div id="dragPool"></div>
+
+                        <div class="workspace-container bg-slate-50" id="gridContainer">
+                            <div class="math-grid" id="practiceGrid">
+                                <div class="place-value-header"></div>
+                                <div class="place-value-header text-center">十</div>
+                                <div class="place-value-header text-center ones-col-header">個</div>
+                                <div class="place-value-header text-center"></div>
+                                <div class="place-value-header text-center text-[0.8rem]">十分</div>
+                                <div class="place-value-header text-center text-[0.8rem]">百分</div>
+
+                                <div class="math-cell text-gray-500 font-black"></div>
+                                <div class="math-cell text-gray-800 font-black text-4xl" id="n1-tens"></div>
+                                <div class="math-cell text-gray-800 ones-col-bg font-black text-4xl" id="n1-ones"></div>
+                                <div class="math-cell dot-cell text-gray-800 font-black text-4xl" id="n1-dot"></div>
+                                <div class="math-cell text-gray-800 font-black text-4xl" id="n1-tenths"></div>
+                                <div class="math-cell text-gray-800 font-black text-4xl" id="n1-hundredths"></div>
+
+                                <div class="math-cell text-gray-500 font-black text-4xl" id="opSign"></div>
+                                <div class="snap-row" id="snapZone">
+                                    <div class="snap-guides">
+                                        <div class="border-[3px] border-dashed border-gray-300 rounded-lg"></div>
+                                        <div class="ones-col-bg border-[3px] border-dashed border-yellow-400"></div>
+                                        <div class="border-[3px] border-dashed border-gray-300 rounded-lg"></div>
+                                        <div class="border-[3px] border-dashed border-gray-300 rounded-lg"></div>
+                                        <div class="border-[3px] border-dashed border-gray-300 rounded-lg"></div>
+                                    </div>
+                                </div>
+
+                                <div class="grid-line"></div>
+
+                                <div class="math-cell"></div>
+                                <div class="math-cell" id="ans-wrapper-tens">
+                                    <div class="ans-input-cell disabled" id="ans-input-tens" data-pos="0"></div>
+                                </div>
+                                <div class="math-cell ones-col-bg" id="ans-wrapper-ones">
+                                    <div class="ans-input-cell disabled" id="ans-input-ones" data-pos="1"></div>
+                                </div>
+                                <div class="math-cell dot-cell" id="ans-wrapper-dot">
+                                    <div class="ans-input-cell dot-input disabled" id="ans-input-dot" data-pos="2"></div>
+                                </div>
+                                <div class="math-cell" id="ans-wrapper-tenths">
+                                    <div class="ans-input-cell disabled" id="ans-input-tenths" data-pos="3"></div>
+                                </div>
+                                <div class="math-cell" id="ans-wrapper-hundredths">
+                                    <div class="ans-input-cell disabled" id="ans-input-hundredths" data-pos="4"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="calculationAreaWrapper" class="locked absolute bottom-0 left-0 w-full h-[70px] z-20 rounded-b-[2rem]"></div>
+                    </div>
+
+                    <!-- 右邊：自訂積木鍵盤及提交按鈕 -->
+                    <div id="numpadArea" class="w-full max-w-sm flex flex-col items-center gap-6 opacity-50 pointer-events-none transition-opacity duration-300 mt-4 lg:mt-0">
+                        
+                        <div class="grid grid-cols-3 gap-4 w-full bg-white p-5 rounded-3xl border-4 border-gray-200 shadow-[0_6px_0_#e2e8f0]">
+                            <button onclick="handleNumpad('7')" class="num-btn math-font">7</button>
+                            <button onclick="handleNumpad('8')" class="num-btn math-font">8</button>
+                            <button onclick="handleNumpad('9')" class="num-btn math-font">9</button>
+                            
+                            <button onclick="handleNumpad('4')" class="num-btn math-font">4</button>
+                            <button onclick="handleNumpad('5')" class="num-btn math-font">5</button>
+                            <button onclick="handleNumpad('6')" class="num-btn math-font">6</button>
+                            
+                            <button onclick="handleNumpad('1')" class="num-btn math-font">1</button>
+                            <button onclick="handleNumpad('2')" class="num-btn math-font">2</button>
+                            <button onclick="handleNumpad('3')" class="num-btn math-font">3</button>
+                            
+                            <button onclick="handleNumpad('.')" class="num-btn font-black text-4xl math-font text-gray-500 border-gray-300 border-bottom-gray-400">.</button>
+                            <button onclick="handleNumpad('0')" class="num-btn math-font">0</button>
+                            <button onclick="handleNumpad('Backspace')" class="num-btn btn-action">⌫</button>
+                        </div>
+                        
+                        <div id="feedbackMessage" class="min-h-[48px] text-center text-lg md:text-2xl font-black transition-all opacity-0 flex items-center justify-center w-full"></div>
+                        
+                        <button onclick="checkAnswer()" id="submitBtn" class="w-full bg-green-500 hover:bg-green-400 text-white text-2xl font-black py-5 rounded-2xl shadow-[0_6px_0_#16a34a] active:translate-y-[6px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed border-2 border-green-600">
+                            ✨ 提交答案 ✨
+                        </button>
+                        
+                        <button onclick="generateQuestion()" id="nextBtn" class="hidden w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-black py-5 rounded-2xl shadow-[0_6px_0_#d97706] active:translate-y-[6px] active:shadow-none transition-all border-2 border-yellow-500">
+                            下一題 ➡️
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'add';
+        let qNum1 = 0; let qNum2 = 0; let qAns = 0; let maxDec = 0;
+        let score = 0; let isAligned = false;
+        let pendingZeros = 0; 
+        
+        let dragItem = null; let active = false;
+        let currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
+        
+        const colWidths = [45, 45, 15, 45, 45];
+        const cellGap = 4;
+        const colPositions = [0]; 
+        let currentPos = 0;
+        for (let i = 0; i < 4; i++) {
+            currentPos += colWidths[i] + cellGap;
+            colPositions.push(currentPos);
+        }
+        
+        const inputIds = ['ans-input-tens', 'ans-input-ones', 'ans-input-dot', 'ans-input-tenths', 'ans-input-hundredths'];
+        let currentActiveInput = null;
+
+        const snapZone = document.getElementById('snapZone');
+        const dragPool = document.getElementById('dragPool');
+        const instructionBanner = document.getElementById('instructionBanner');
+        const numpadArea = document.getElementById('numpadArea');
+        const submitBtn = document.getElementById('submitBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const feedbackMessage = document.getElementById('feedbackMessage');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const questionDisplay = document.getElementById('questionDisplay');
+        const tutorialDesc = document.getElementById('tutorialDesc');
+        const tutorialGrid = document.getElementById('tutorialGrid');
+        const calculationAreaWrapper = document.getElementById('calculationAreaWrapper');
+
+        function getSmallInt() { return Math.floor(Math.random() * 15) + 1; } 
+        function getSmallOneDec() { let num = (Math.floor(Math.random() * 89) + 11) / 10; return num % 1 === 0 ? num + 0.1 : num; } 
+        function getSmallTwoDec() { let num = (Math.floor(Math.random() * 899) + 101) / 100; if (num * 100 % 10 === 0) num += 0.01; return num; }
+        function calc(a, b, op) { return op === '+' ? Math.round((a + b) * 100) / 100 : Math.round((a - b) * 100) / 100; }
+        function getDigitArray(num, enforceDecimals = 0) {
+            let str = num.toString();
+            let isInt = !str.includes('.');
+            let parts = isInt ? [str, ""] : str.split('.');
+            let intPart = parts[0]; let decPart = parts[1];
+            return [
+                intPart.length > 1 ? intPart[intPart.length - 2] : null,
+                intPart[intPart.length - 1],
+                (!isInt || enforceDecimals > 0) ? "." : null,
+                decPart[0] || null,
+                decPart[1] || null
+            ];
+        }
+
+        function buildTutorialRow(numArr, opSign, isResult, targetDecimals) {
+            let html = `<div class="math-cell text-gray-500 font-bold">${opSign}</div>`;
+            const keys = ['tens', 'ones', 'dot', 'tenths', 'hundredths'];
+            keys.forEach((k, i) => {
+                let val = numArr[i];
+                let bgClass = (k === 'ones' && !isResult) ? "ones-col-bg" : "";
+                let cellClass = k === 'dot' ? 'math-cell dot-cell' : 'math-cell font-bold';
+                let textColor = isResult ? "text-purple-600" : "text-gray-800";
+                let displayVal = val !== null ? val : '';
+                if (!isResult && targetDecimals > 0 && val === null) {
+                    if (k === 'dot') displayVal = `<span class="text-green-500 font-black">.</span>`;
+                    else if (k === 'tenths' && targetDecimals >= 1) displayVal = `<span class="text-green-600 bg-green-100 border-2 border-green-300 px-1 rounded-lg font-black">0</span>`;
+                    else if (k === 'hundredths' && targetDecimals >= 2) displayVal = `<span class="text-green-600 bg-green-100 border-2 border-green-300 px-1 rounded-lg font-black">0</span>`;
+                }
+                html += `<div class="${cellClass} ${bgClass} ${textColor}">${displayVal}</div>`;
+            });
+            return html;
+        }
+
+        function renderTutorialGrid(n1, n2, ans, op, targetDec) {
+            let n1Arr = getDigitArray(n1, targetDec); let n2Arr = getDigitArray(n2, targetDec); let ansArr = getDigitArray(ans, targetDec);
+            let html = `
+                <div class="place-value-header"></div><div class="place-value-header text-center">十</div><div class="place-value-header text-center ones-col-header">個</div>
+                <div class="place-value-header text-center"></div><div class="place-value-header text-center">十分</div><div class="place-value-header text-center">百分</div>
+            `;
+            html += buildTutorialRow(n1Arr, "", false, targetDec);
+            html += buildTutorialRow(n2Arr, op, false, targetDec);
+            html += `<div class="grid-line"></div>`;
+            html += buildTutorialRow(ansArr, "", true, targetDec);
+            tutorialGrid.innerHTML = html;
+        }
+
+        function updateTutorial() {
+            if (currentMode === 'add') {
+                tutorialDesc.innerHTML = `
+                    計算 <span class="font-black math-font text-2xl text-blue-600 bg-blue-50 px-2 rounded-lg">4 + 2.15</span> 時：<br><br>
+                    1. <strong class="text-red-500">對齊個位</strong>（4 對齊 2）。<br>
+                    2. <strong class="text-green-500">補零</strong>（將 4 變成 4.00）。<br>
+                    3. 由最右邊（百分位）開始相加。
+                `;
+                renderTutorialGrid(4, 2.15, 6.15, '+', 2);
+            } else {
+                tutorialDesc.innerHTML = `
+                    計算 <span class="font-black math-font text-2xl text-red-600 bg-red-50 px-2 rounded-lg">8.3 - 5</span> 時：<br><br>
+                    1. <strong class="text-red-500">對齊個位</strong>（8 對齊 5）。<br>
+                    2. <strong class="text-green-500">補零</strong>（將 5 變成 5.0）。<br>
+                    3. 由最右邊（十分位）開始相減。
+                `;
+                renderTutorialGrid(8.3, 5, 3.3, '-', 1);
+            }
+        }
+
+        function setupDraggable(element) {
+            dragItem = element; xOffset = 0; yOffset = 0; active = false;
+            element.addEventListener("touchstart", dragStart, {passive: false});
+            document.addEventListener("touchend", dragEnd);
+            document.addEventListener("touchmove", drag, {passive: false});
+            element.addEventListener("mousedown", dragStart);
+            document.addEventListener("mouseup", dragEnd);
+            document.addEventListener("mousemove", drag);
+        }
+
+        function dragStart(e) {
+            if(isAligned) return;
+            if (e.type === "touchstart") { initialX = e.touches[0].clientX - xOffset; initialY = e.touches[0].clientY - yOffset; } 
+            else { initialX = e.clientX - xOffset; initialY = e.clientY - yOffset; }
+            if (e.target.closest('#dragItem')) { active = true; dragItem.classList.add('dragging'); dragItem.style.zIndex = "100"; }
+        }
+
+        function drag(e) {
+            if (active) {
+                e.preventDefault();
+                if (e.type === "touchmove") { currentX = e.touches[0].clientX - initialX; currentY = e.touches[0].clientY - initialY; } 
+                else { currentX = e.clientX - initialX; currentY = e.clientY - initialY; }
+                xOffset = currentX; yOffset = currentY;
+                dragItem.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+            }
+        }
+
+        function dragEnd(e) {
+            if (!active) return;
+            initialX = currentX; initialY = currentY; active = false;
+            dragItem.classList.remove('dragging');
+            checkSnap();
+        }
+
+        function checkSnap() {
+            if(!dragItem) return;
+            const dragRect = dragItem.getBoundingClientRect();
+            const snapRect = snapZone.getBoundingClientRect();
+            
+            if (Math.abs(dragRect.top - snapRect.top) > 80) { returnToPool("請將數字移入下方直式區域！"); return; }
+
+            const relativeLeft = dragRect.left - snapRect.left;
+            let closestCol = 0; let minDiff = Infinity;
+            for(let i=0; i<colPositions.length; i++){
+                let diff = Math.abs(relativeLeft - colPositions[i]);
+                if(diff < minDiff){ minDiff = diff; closestCol = i; }
+            }
+            
+            let n2Arr = getDigitArray(qNum2);
+            let correctStartCol = 0;
+            for(let i=0; i<5; i++){ if(n2Arr[i] !== null){ correctStartCol = i; break; } }
+
+            if (closestCol === correctStartCol) {
+                isAligned = true;
+                const targetX = colPositions[closestCol];
+                snapZone.appendChild(dragItem);
+                dragItem.style.position = 'absolute';
+                dragItem.style.left = `${targetX}px`; dragItem.style.top = '0px'; 
+                dragItem.style.transform = 'none'; dragItem.style.cursor = 'default'; dragItem.style.zIndex = '10'; 
+                
+                checkAndSetupManualPadding(n2Arr);
+            } else {
+                returnToPool("對位未啱喎，確保數字嘅個位落入黃色格！");
+            }
+        }
+        
+        function returnToPool(msg) {
+            xOffset = 0; yOffset = 0; dragItem.style.transform = `translate3d(0, 0, 0)`; 
+            showTempFeedback(msg, "text-red-500");
+        }
+
+        function buildDragInnerGrid(numStr) {
+            let cols = [];
+            for (let char of numStr) { cols.push(char === '.' ? '15px' : '45px'); }
+            return cols.join(' ');
+        }
+
+        function createPadButton(type, targetId, parentElement) {
+            let btn = document.createElement('button');
+            btn.className = type === 'dot' ? 'pad-zero-btn dot-btn' : 'pad-zero-btn math-font text-2xl';
+            btn.innerHTML = type === 'dot' ? '.' : '補 0';
+            btn.onclick = function() {
+                if (type === 'dot') this.parentElement.innerHTML = `<span class="text-green-500 font-black">.</span>`;
+                else this.parentElement.innerHTML = `<span class="text-green-600 font-black text-4xl bg-green-100 rounded-lg px-1 border-2 border-green-300">0</span>`;
+                pendingZeros--; checkIfReadyToCalculate();
+            };
+            if (parentElement) { parentElement.innerHTML = ''; parentElement.appendChild(btn); } 
+            else { let cell = document.getElementById(targetId); cell.innerHTML = ''; cell.appendChild(btn); }
+            pendingZeros++;
+        }
+
+        function checkAndSetupManualPadding(n2Arr) {
+            pendingZeros = 0; let n1Arr = getDigitArray(qNum1);
+            
+            if(maxDec > 0) {
+                if(n1Arr[2] === null) createPadButton('dot', 'n1-dot', null);
+                if(maxDec >= 1 && n1Arr[3] === null) createPadButton('zero', 'n1-tenths', null);
+                if(maxDec >= 2 && n1Arr[4] === null) createPadButton('zero', 'n1-hundredths', null);
+            }
+
+            if(maxDec > 0) {
+                let innerGrid = dragItem.querySelector('.drag-inner-grid');
+                let numStr = qNum2.toString(); let currentCols = buildDragInnerGrid(numStr);
+                
+                if(!numStr.includes('.')) {
+                    currentCols += " 4px 15px"; innerGrid.style.gridTemplateColumns = currentCols;
+                    let cell = document.createElement('div'); cell.className = 'drag-cell dot-cell'; innerGrid.appendChild(cell);
+                    createPadButton('dot', null, cell);
+                }
+                if(maxDec >= 1 && n2Arr[3] === null) {
+                    currentCols += " 4px 45px"; innerGrid.style.gridTemplateColumns = currentCols;
+                    let cell = document.createElement('div'); cell.className = 'drag-cell num-cell'; innerGrid.appendChild(cell);
+                    createPadButton('zero', null, cell);
+                }
+                if(maxDec >= 2 && n2Arr[4] === null) {
+                    currentCols += " 4px 45px"; innerGrid.style.gridTemplateColumns = currentCols;
+                    let cell = document.createElement('div'); cell.className = 'drag-cell num-cell'; innerGrid.appendChild(cell);
+                    createPadButton('zero', null, cell);
+                }
+                
+                dragItem.style.border = 'none'; dragItem.style.boxShadow = 'none'; dragItem.style.backgroundColor = 'transparent';
+                innerGrid.style.border = 'none'; innerGrid.style.boxShadow = 'none'; innerGrid.style.backgroundColor = 'transparent';
+                innerGrid.style.padding = '0'; 
+            }
+            checkIfReadyToCalculate();
+        }
+
+        function checkIfReadyToCalculate() {
+            if (pendingZeros === 0) enableCalculation();
+            else {
+                instructionBanner.className = "bg-orange-100 text-orange-800 p-3 rounded-2xl text-center font-black mb-8 text-lg md:text-xl animate-pulse border-4 border-orange-300 transition-all";
+                instructionBanner.innerHTML = "👉 第二步：對齊完成！請點擊閃動框框<strong class='text-red-500'>手動補零</strong>。";
+            }
+        }
+
+        function setActiveInput(cell) {
+            if (currentActiveInput) { currentActiveInput.classList.remove('active-cell'); }
+            currentActiveInput = cell;
+            if (cell) { cell.classList.add('active-cell'); }
+        }
+
+        function focusPreviousInput(currentPos) {
+            for (let i = currentPos - 1; i >= 0; i--) {
+                let nextId = inputIds[i];
+                if (nextId) {
+                    let nextInput = document.getElementById(nextId);
+                    if (nextInput.style.display !== 'none' && !nextInput.classList.contains('disabled')) {
+                        setActiveInput(nextInput);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function focusNextInput(currentPos) {
+            for (let i = currentPos + 1; i < 5; i++) {
+                let prevId = inputIds[i];
+                if (prevId) {
+                    let prevInput = document.getElementById(prevId);
+                    if (prevInput.style.display !== 'none' && !prevInput.classList.contains('disabled')) {
+                        setActiveInput(prevInput);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function setupInputs() {
+            let ansArr = getDigitArray(qAns);
+            let rightmostIndex = 4;
+            if (maxDec === 1) rightmostIndex = 3;
+            if (maxDec === 0) rightmostIndex = 1;
+            if (maxDec === 2) rightmostIndex = 4;
+
+            inputIds.forEach((id, index) => {
+                if (!id) return; 
+                let input = document.getElementById(id);
+                
+                let n1Arr = getDigitArray(qNum1); let n2Arr = getDigitArray(qNum2);
+                let showCell = (ansArr[index] !== null) || (n1Arr[index] !== null) || (n2Arr[index] !== null) || (index <= rightmostIndex && index >= 1);
+                
+                if (index === 2 && maxDec > 0) showCell = true;
+                if (index === 0 && ansArr[0] === null && n1Arr[0] === null && n2Arr[0] === null) showCell = false; 
+                
+                if (showCell) {
+                    input.style.display = 'flex'; input.innerText = '';
+                    input.classList.remove('correct', 'incorrect', 'active-cell');
+                    input.classList.add('disabled'); 
+                } else {
+                    input.style.display = 'none'; input.innerText = '';
+                }
+
+                input.onclick = function() {
+                    if (!this.classList.contains('disabled')) setActiveInput(this);
+                };
+            });
+            setActiveInput(null);
+        }
+
+        function handleNumpad(key) {
+            if (!currentActiveInput || numpadArea.classList.contains('opacity-50')) return;
+            
+            let currentPos = parseInt(currentActiveInput.dataset.pos);
+
+            if (key === 'Backspace') {
+                if (currentActiveInput.innerText === '') focusNextInput(currentPos);
+                else currentActiveInput.innerText = '';
+            } else if (key === '.') {
+                if (currentPos === 2) {
+                    currentActiveInput.innerText = '.';
+                    focusPreviousInput(currentPos);
+                } else {
+                    showTempFeedback("呢格係填數字㗎，唔係小數點！", "text-red-500 bg-red-100 border-2 border-red-300 rounded-xl p-2");
+                }
+            } else { 
+                if (currentPos === 2) {
+                    showTempFeedback("呢格係填小數點 (.) 㗎！", "text-red-500 bg-red-100 border-2 border-red-300 rounded-xl p-2");
+                } else {
+                    currentActiveInput.innerText = key;
+                    focusPreviousInput(currentPos);
+                }
+            }
+        }
+
+        // Support Physical Keyboard for Desktop users
+        document.addEventListener('keydown', function(e) {
+            if (numpadArea.classList.contains('opacity-50')) return;
+            
+            if (e.key >= '0' && e.key <= '9') {
+                handleNumpad(e.key);
+            } else if (e.key === '.' || e.key === '。' || e.key === '．') {
+                handleNumpad('.');
+            } else if (e.key === 'Backspace') {
+                e.preventDefault(); 
+                handleNumpad('Backspace');
+            } else if (e.key === 'ArrowLeft') {
+                if(currentActiveInput) focusPreviousInput(parseInt(currentActiveInput.dataset.pos));
+            } else if (e.key === 'ArrowRight') {
+                if(currentActiveInput) focusNextInput(parseInt(currentActiveInput.dataset.pos));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if(!submitBtn.disabled) checkAnswer();
+            }
+        });
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const baseTabClass = "tab-btn px-6 py-2 md:px-10 md:py-4 rounded-t-3xl font-black text-lg md:text-2xl border-4 border-b-0 transition-all ";
+            
+            if (mode === 'add') {
+                addModeBtn.className = baseTabClass + "active border-blue-400 bg-blue-400 text-white translate-y-1 z-20 relative shadow-md";
+                subModeBtn.className = baseTabClass + "inactive border-gray-300 bg-gray-100 text-gray-500 hover:bg-red-50 z-10 relative";
+                document.querySelector('.main-content-box').className = "main-content-box bg-white p-4 md:p-8 rounded-b-[2rem] rounded-tr-[2rem] shadow-[0_8px_0_#60a5fa] border-4 border-blue-400 -mt-2 relative z-10";
+            } else {
+                subModeBtn.className = baseTabClass + "active border-red-400 bg-red-400 text-white translate-y-1 z-20 relative shadow-md";
+                addModeBtn.className = baseTabClass + "inactive border-gray-300 bg-gray-100 text-gray-500 hover:bg-blue-50 z-10 relative";
+                document.querySelector('.main-content-box').className = "main-content-box bg-white p-4 md:p-8 rounded-b-[2rem] rounded-tl-[2rem] shadow-[0_8px_0_#f87171] border-4 border-red-400 -mt-2 relative z-10";
+            }
+            updateTutorial(); generateQuestion();
+        }
+
+        function generateQuestion() {
+            isAligned = false; pendingZeros = 0;
+            feedbackMessage.style.opacity = 0; 
+            nextBtn.classList.add('hidden'); submitBtn.classList.remove('hidden'); submitBtn.disabled = true;
+            disableCalculation();
+
+            const op = currentMode === 'add' ? '+' : '-';
+            const type = Math.floor(Math.random() * 3) + 1;
+
+            if (type === 1) { maxDec = 1; if (Math.random() < 0.5) { qNum1 = getSmallInt(); qNum2 = getSmallOneDec(); } else { qNum1 = getSmallOneDec(); qNum2 = getSmallInt(); } }
+            else if (type === 2) { maxDec = 1; qNum1 = getSmallOneDec(); qNum2 = getSmallOneDec(); } 
+            else if (type === 3) { maxDec = 2; if (Math.random() < 0.5) { qNum1 = getSmallOneDec(); qNum2 = getSmallTwoDec(); } else { qNum1 = getSmallTwoDec(); qNum2 = getSmallOneDec(); } }
+
+            if (op === '-') {
+                if (qNum1 < qNum2) { let temp = qNum1; qNum1 = qNum2; qNum2 = temp; }
+                if (qNum1 === qNum2) qNum2 = Math.round(qNum2 / 2 * 100)/100;
+            }
+
+            qAns = calc(qNum1, qNum2, op);
+
+            let opColor = op === '+' ? 'text-blue-500' : 'text-red-500';
+            let opBg = op === '+' ? 'bg-blue-100 border-blue-300' : 'bg-red-100 border-red-300';
+            questionTypeLabel.innerText = `🎲 題型：${['整數與一位小數','一位小數與一位小數','一位小數與兩位小數'][type-1]}`;
+            questionDisplay.innerHTML = `<span>${qNum1}</span> <span class="${opColor}">${op}</span> <span class="text-blue-700 font-black ${opBg} px-3 py-1 rounded-xl border-4 shadow-sm">${qNum2}</span> <span>=</span> <span class="text-gray-300 border-b-4 border-dashed border-gray-300 w-16"></span>`;
+            
+            document.getElementById('opSign').innerText = op; document.getElementById('opSign').className = `math-cell font-black text-4xl ${opColor}`;
+
+            let n1Arr = getDigitArray(qNum1);
+            const keys = ['tens', 'ones', 'dot', 'tenths', 'hundredths'];
+            keys.forEach((k, i) => {
+                let cell = document.getElementById(`n1-${k}`);
+                cell.innerHTML = n1Arr[i] !== null ? n1Arr[i] : '';
+            });
+
+            setupInputs();
+
+            dragPool.innerHTML = '';
+            let qNum2Str = qNum2.toString(); let newDragItem = document.createElement('div'); newDragItem.id = 'dragItem';
+            let innerGrid = document.createElement('div'); innerGrid.className = 'drag-inner-grid';
+            innerGrid.style.gridTemplateColumns = buildDragInnerGrid(qNum2Str);
+            for(let char of qNum2Str) {
+                let cell = document.createElement('div'); cell.className = char === '.' ? 'drag-cell dot-cell' : 'drag-cell num-cell';
+                cell.innerText = char; innerGrid.appendChild(cell);
+            }
+            newDragItem.appendChild(innerGrid); dragPool.appendChild(newDragItem);
+            setupDraggable(newDragItem);
+        }
+
+        function enableCalculation() {
+            instructionBanner.className = "bg-green-100 text-green-800 p-3 md:p-4 rounded-2xl text-center font-black mb-8 text-lg md:text-xl border-4 border-green-400 shadow-sm transition-all";
+            instructionBanner.innerHTML = "✅ 準備就緒！<br class='md:hidden'>請由右至左逐格輸入答案。";
+            
+            numpadArea.classList.remove('opacity-50', 'pointer-events-none');
+            calculationAreaWrapper.classList.remove('locked');
+            submitBtn.disabled = false;
+
+            let rightmostId = null;
+            for (let i = 4; i >= 0; i--) {
+                let id = inputIds[i];
+                if (id) {
+                    let input = document.getElementById(id);
+                    if (input.style.display !== 'none') {
+                        input.classList.remove('disabled');
+                        if (!rightmostId) rightmostId = id;
+                    }
+                }
+            }
+            
+            if(rightmostId) {
+                setActiveInput(document.getElementById(rightmostId));
+                if(window.innerWidth < 1024) { 
+                    setTimeout(() => { numpadArea.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, 300); 
+                }
+            }
+        }
+
+        function disableCalculation() {
+            instructionBanner.className = "bg-blue-100 text-blue-800 p-3 md:p-4 rounded-2xl text-center font-black mb-8 text-lg md:text-xl animate-pulse border-4 border-blue-400 shadow-sm transition-all";
+            instructionBanner.innerHTML = "👉 第一步：請將下方數字拖拉到直式中，對齊「個位」！";
+            numpadArea.classList.add('opacity-50', 'pointer-events-none');
+            calculationAreaWrapper.classList.add('locked');
+            submitBtn.disabled = true;
+            feedbackMessage.style.opacity = 0;
+            
+            if(dragItem && dragItem.parentNode === snapZone){
+                dragPool.appendChild(dragItem);
+                dragItem.style.position = 'absolute'; dragItem.style.transform = 'translate3d(0, 0, 0)';
+                xOffset = 0; yOffset = 0;
+            }
+        }
+
+        function showTempFeedback(msg, colorClass) {
+            feedbackMessage.innerHTML = `<span class="${colorClass}">${msg}</span>`;
+            feedbackMessage.style.opacity = 1;
+            setTimeout(() => { if(numpadArea.classList.contains('opacity-50')) feedbackMessage.style.opacity = 0; }, 2500);
+        }
+
+        function checkAnswer() {
+            let userStr = ""; let isAllEmpty = true;
+            
+            inputIds.forEach((id, index) => {
+                if(id) {
+                    let input = document.getElementById(id);
+                    if(input.style.display !== 'none') {
+                        let val = input.innerText.trim();
+                        if(val !== "") isAllEmpty = false;
+                        if (index === 2) {
+                            userStr += val === "." ? "." : "";
+                        } else {
+                            userStr += val === "" ? "0" : val; 
+                        }
+                    }
+                }
+            });
+
+            if (isAllEmpty) return;
+
+            const userAnswer = parseFloat(userStr);
+            let ansArr = getDigitArray(qAns);
+            let isCompletelyCorrect = true;
+
+            inputIds.forEach((id, index) => {
+                if(id) {
+                    let input = document.getElementById(id);
+                    if(input.style.display !== 'none') {
+                        let expectedVal = ansArr[index] !== null ? ansArr[index] : "0";
+                        if (index === 2) expectedVal = "."; 
+
+                        let userVal = input.innerText.trim();
+                        if (index !== 2 && userVal === "") userVal = "0"; 
+                        
+                        input.classList.remove('correct', 'incorrect');
+                        if(index === 0 && ansArr[index] === null && input.innerText.trim() === "") {
+                            input.classList.add('correct');
+                        } else if(userVal === expectedVal) {
+                            input.classList.add('correct');
+                        } else {
+                            input.classList.add('incorrect');
+                            isCompletelyCorrect = false;
+                            input.style.animation = 'none'; input.offsetHeight; input.style.animation = null; 
+                        }
+                    }
+                }
+            });
+            
+            if (isCompletelyCorrect && userAnswer === qAns) {
+                score += 10; scoreDisplay.innerText = score;
+                let praises = ["好叻呀！🎉", "完全正確！🌟", "你係計數大師！🏆"];
+                feedbackMessage.innerHTML = `<span class="text-green-600 bg-green-100 border-2 border-green-300 rounded-xl p-2 block w-full">${praises[Math.floor(Math.random() * praises.length)]}</span>`;
+                feedbackMessage.style.opacity = 1;
+                
+                inputIds.forEach(id => { if(id) { document.getElementById(id).classList.add('disabled'); }});
+                setActiveInput(null);
+                
+                submitBtn.classList.add('hidden'); nextBtn.classList.remove('hidden');
+            } else {
+                feedbackMessage.innerHTML = `<span class="text-red-500 bg-red-100 border-2 border-red-300 rounded-xl p-2 block w-full">有紅色格仔計錯咗喎，再檢查吓！🧐</span>`;
+                feedbackMessage.style.opacity = 1;
+                
+                for (let i = 4; i >= 0; i--) {
+                    if (inputIds[i]) {
+                        let input = document.getElementById(inputIds[i]);
+                        if (input.classList.contains('incorrect')) { setActiveInput(input); break; }
+                    }
+                }
+            }
+        }
+
+        // Init
+        switchMode('add');
+    </script>
+</body>
+</html>
