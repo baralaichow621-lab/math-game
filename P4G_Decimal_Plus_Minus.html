@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>小數激戰</title>
-  <!-- 載入 React 核心 -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <!-- 載入 Babel 以在瀏覽器編譯 JSX -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 載入 React 核心 (固定穩定版本) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- 載入 Babel (固定 7.23.6 穩定版，解決 import 錯誤) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
   <!-- 載入 Tailwind CSS 樣式 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -23,6 +23,9 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    /** @jsx React.createElement */
+    /** @jsxFrag React.Fragment */
+    
     const { useState, useRef, useEffect } = React;
 
     // --- 全新的簡化版題目生成工具 ---
